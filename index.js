@@ -12,7 +12,7 @@ app.use(express.urlencoded({extended:true}));
 connectDb();
 
 // Routes
-app.use("/api/chat-bot/query", queryRoutes);
+app.use("/ai/api/chat-bot/query", queryRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
