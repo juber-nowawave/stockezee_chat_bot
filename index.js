@@ -1,13 +1,19 @@
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 import queryRoutes from "./routers/ai_chat_bot.Route.js";
 import {connectDb} from "./models/index.js";
 
 dotenv.config();
 const app = express();
+
+var corsOptions = {
+  origin: '*',
+}
+
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
-
+app.use(cors(corsOptions));
 // DB connect
 connectDb();
 
