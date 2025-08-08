@@ -164,10 +164,7 @@ User Query:
           "SQL query generated based on your request. Please execute to see the results.",
       });
     }
-
-    console.log('---------->',parsedResponse);
     
-
     if (!parsedResponse.sql) {
       return res.status(500).json({
         success: false,
