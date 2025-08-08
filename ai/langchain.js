@@ -147,7 +147,7 @@ User Query:
     if (!cleanedResponse) {
       return res.status(500).json({
         success: false,
-        message: "Gemini did not return a valid response.",
+        message: "Please try again!",
       });
     }
 
