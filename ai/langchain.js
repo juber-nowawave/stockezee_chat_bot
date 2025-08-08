@@ -72,9 +72,6 @@ const getTrainingData = async () => {
     const [[sampleRows]] = await db.query(`
       SELECT * FROM ${table_name} LIMIT 1
     `);
-
-    console.log('------------>',sampleRows);
-    
     trainingData[table_name] = {
       description: tableDescriptions[table_name] || "No description provided.",
       columns: columnNames,
@@ -123,24 +120,23 @@ Instructions:
 4. Return your response in the following JSON format:
 {
   "sql": "your SQL query here",
-  "explanation": "natural, conversational explanation as if you're directly answering the user's question about stock data, not about database operations"
+  "initial_explanation": "brief explanation of what you're looking for",
+  "success_template": "template for when data is found - use {DATA_SUMMARY} placeholder for actual results",
+  "no_data_explanation": "explanation for when no data is found"
 }
-5. For the explanation, respond as if you're a financial assistant answering their stock question directly.
-6. Examples of good explanations:
-   - Query: "closing price of RELIANCE" → Explanation: "I'll get you the latest closing price for Reliance Industries stock."
-   - Query: "Tell me about TCS" → Explanation: "I'll provide you with detailed company information about Tata Consultancy Services, including their business overview and key details."
-   - Query: "compare INFY with peers" → Explanation: "I'll show you how Infosys performs compared to its industry peers in terms of key financial metrics."
+
+5. For success_template, create a natural response template that will be filled with actual data
+6. Use {DATA_SUMMARY} as placeholder where actual data details should go
+7. Examples:
+   - Query: "closing price of RELIANCE" → success_template: "RELIANCE's latest closing price is {DATA_SUMMARY}"
+   - Query: "Tell me about TCS" → success_template: "Here's information about TCS: {DATA_SUMMARY}"
 
 User Query:
 "${userQuery}"
 `;
 
-    // console.log("Prompt:\n", prompt);
-
     const response = await model.invoke(prompt);
-    // console.log("Gemini response:\n", response);
 
-    // Clean the response
     const cleanedResponse = response?.content
       ?.trim()
       ?.replace(/^```json/i, "")
@@ -155,14 +151,11 @@ User Query:
       });
     }
 
-    // Try to parse JSON response
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error("Error parsing JSON response:", parseError);
-
-      // Fallback: treat the entire response as SQL (backward compatibility)
       const fallbackSQL = cleanedResponse;
       return res.json({
         success: true,
@@ -172,7 +165,9 @@ User Query:
       });
     }
 
-    // Validate the parsed response
+    console.log('---------->',parsedResponse);
+    
+
     if (!parsedResponse.sql) {
       return res.status(500).json({
         success: false,
@@ -180,63 +175,52 @@ User Query:
       });
     }
 
-    // Execute the query to get actual data for better explanation
-    let queryResults = [];
-    let actualExplanation = parsedResponse.explanation;
+    let actualExplanation =
+      parsedResponse.initial_explanation || "Processing your request...";
 
     try {
       const [results] = await db.query(parsedResponse.sql);
-      queryResults = results;
 
-      // Generate explanation with actual data
       if (results.length > 0) {
-        const dataExplanationPrompt = `
-You are a financial assistant. The user asked: "${userQuery}"
+        let dataSummary = "";
 
-The query returned this data:
-${JSON.stringify(results.slice(0, 3), null, 2)}
-Total records: ${results.length}
+        if (results.length === 1) {
+          const result = results[0];
+          const keyValues = Object.entries(result)
+            .filter(([key, value]) => value !== null && value !== undefined)
+            .slice(0, 5)
+            .map(([key, value]) => {
+              if (
+                typeof value === "number" &&
+                (key.toLowerCase().includes("price") ||
+                  key.toLowerCase().includes("value"))
+              ) {
+                return `${key}: ₹${value.toFixed(2)}`;
+              }
+              return `${key}: ${value}`;
+            });
+          dataSummary = keyValues.join(", ");
+        } else {
+          dataSummary = `Found ${results.length} records. Key data includes relevant information about ${symbol}`;
+        }
 
-Provide a natural, conversational response that directly answers the user's question using the actual data values. 
-
-Guidelines:
-1. Use specific numbers/values from the results
-2. Be conversational like a financial advisor
-3. Don't mention database or technical details
-4. If it's price data, format it properly (₹XXX.XX)
-5. If it's company info, summarize key points naturally
-6. Keep it concise but informative
-
-Examples:
-- For price: "KPIGREEN's latest closing price is ₹985.50"
-- For company info: "KPIGREEN is a renewable energy company focused on solar power solutions..."
-`;
-
-        const explanationModel = new ChatGoogleGenerativeAI({
-          model: process.env.GOOGLE_MODEL || "gemini-1.5-flash",
-          apiKey: gemini_api_key,
-        });
-
-        const explanationResponse = await explanationModel.invoke(
-          dataExplanationPrompt
-        );
-        actualExplanation =
-          explanationResponse?.content?.trim() || parsedResponse.explanation;
+        actualExplanation = parsedResponse.success_template
+          ? parsedResponse.success_template.replace(
+              "{DATA_SUMMARY}",
+              dataSummary
+            )
+          : `Here's the information for ${symbol}: ${dataSummary}`;
       } else {
-        actualExplanation = `I couldn't find any data for your query about ${userQuery}. The company symbol might not exist in our database or there might be no recent data available.`;
+        actualExplanation =
+          parsedResponse.no_data_explanation ||
+          `I couldn't find any data for your query about ${symbol}. The company symbol might not exist in our database or there might be no recent data available.`;
       }
     } catch (queryError) {
       console.error("Error executing query for explanation:", queryError);
-      // Keep the original explanation if query fails
+      actualExplanation =
+        parsedResponse.initial_explanation ||
+        "There was an error processing your request.";
     }
-
-    // res.json({
-    //   success: true,
-    //   sql: parsedResponse.sql,
-    //   explanation: actualExplanation,
-    //   data: queryResults.slice(0, 10), // Include first 10 records
-    //   totalRecords: queryResults.length
-    // });
 
     res.status(200).json({
       status: 1,
@@ -252,71 +236,3 @@ Examples:
     });
   }
 };
-
-// Optional: Add a separate endpoint for executing the query and getting human-readable results
-// export const executeAndExplainSQL = async (req, res) => {
-//   try {
-//     const { sql, userQuery } = req.body;
-
-//     if (!sql) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "SQL query is required."
-//       });
-//     }
-
-//     // Execute the SQL query
-//     const [results] = await db.query(sql);
-
-//     if (results.length === 0) {
-//       return res.json({
-//         success: true,
-//         data: [],
-//         explanation: "No data found matching your query criteria.",
-//         summary: "The query executed successfully but returned no results."
-//       });
-//     }
-
-//     // Generate human-readable explanation of the results
-//     const model = new ChatGoogleGenerativeAI({
-//       model: process.env.GOOGLE_MODEL || "gemini-1.5-flash",
-//       apiKey: gemini_api_key,
-//     });
-
-//     const explanationPrompt = `
-// You are a financial assistant providing insights on stock market data to a user.
-
-// Original user query: "${userQuery || 'Data query'}"
-// Query results: ${JSON.stringify(results.slice(0, 5), null, 2)}
-// Total records: ${results.length}
-
-// Provide a natural, conversational response as if you're directly answering the user's question about stocks/financial data.
-
-// Guidelines:
-// 1. Answer their question directly with the actual data
-// 2. Use the stock/company names naturally
-// 3. Include relevant numbers/values from the results
-// 4. Add brief context or insights if helpful
-// 5. Don't mention database tables or technical query details
-// 6. Keep it concise and business-focused
-
-// Examples:
-// - If they asked for closing price: "KPIGREEN's latest closing price is ₹XXX"
-// - If they asked about company info: "TCS is a leading IT services company..."
-// - If they asked for historical data: "Here's the price movement for the stock over the requested period..."
-// `;
-
-//     const explanationResponse = await model.invoke(explanationPrompt);
-
-//     // res.json({
-//     //   success: true,
-//     //   data: results,
-//     //   explanation: explanationResponse?.content?.trim() || "Data retrieved successfully.",
-//     //   summary: `Found ${results.length} record(s) matching your query.`
-//     // });
-//     res.status(200).json({status:1 ,message:"Success", data:{msg: explanationResponse?.content?.trim() || "Something wrong!"}})
-//   } catch (error) {
-//     console.error("Error executing and explaining SQL:", error);
-//     res.status(500).json({status:0 ,message: error.message, data:{msg:"Error executing query"}});
-//   }
-// };
