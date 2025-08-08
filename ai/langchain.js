@@ -4,7 +4,6 @@ import { sequelize as db } from "../models/index.js";
 
 dotenv.config();
 
-// Gemini Api Keys
 const gemini_keys = [
   "AIzaSyD7pZbsR0TTYanab0tWo4YLuAslgQm99m8",
   "AIzaSyA_WI8rxxY3J3UFApsqPwDgTvRzm9WP1pw",
@@ -20,7 +19,6 @@ const gemini_keys = [
   "AIzaSyBZWWu249O2rB6yESZm2yF-9pfC8cJuuBM",
 ];
 
-// Table descriptions
 const tableDescriptions = {
   nse_eq_stock_data_daily:
     "This table contains live stock data for the current trading day.",
@@ -40,19 +38,29 @@ const tableDescriptions = {
     "This table contains insider trading and corporate action data scraped from NSE.",
   nse_slbs_scraped_data:
     "This table contains Securities Lending and Borrowing Scheme (SLBS) data from NSE.",
+  nse_eq_stock_candle_pettern_per_week:
+    "Stores weekly candlestick pattern information for NSE equity stocks.",
+  nse_eq_stock_candle_pettern_per_day:
+    "Stores daily candlestick pattern information for NSE equity stocks.",
+  nse_company_financials:
+    "Contains detailed company financial data such as net profit, expenses, period, and profit before tax.",
+  nse_company_profile:
+    "Contains company profile information including name, series, industry, sector, trading status, board status, FFMC, and total market capitalization.",
+  global_mcx_equity_stock_data_daily:
+    "Contains daily data for global commodities and currencies.",
+  global_eq_stock_data_daily: "Contains daily data for global equity stocks.",
+  fii_buying_scrape_data:
+    "Contains Foreign Institutional Investor (FII) buying data scraped from NSE.",
 };
 
-// Fetch schema and sample data
-const getTrainingData = async () => {
-  const [tables] = await db.query(`
-    SELECT table_name
-    FROM information_schema.tables
-    WHERE table_schema = 'public'
-  `);
+let cachedTrainingData = null;
 
+const getTrainingData = async () => {
+  if (cachedTrainingData) return cachedTrainingData;
+  const tables = Object.keys(tableDescriptions);
   const trainingData = {};
 
-  for (const { table_name } of tables) {
+  for (const table_name of tables) {
     const [columns] = await db.query(`
       SELECT column_name
       FROM information_schema.columns
@@ -61,10 +69,12 @@ const getTrainingData = async () => {
 
     const columnNames = columns.map((col) => col.column_name);
 
-    const [sampleRows] = await db.query(`
-      SELECT * FROM ${table_name} LIMIT 3
+    const [[sampleRows]] = await db.query(`
+      SELECT * FROM ${table_name} LIMIT 1
     `);
 
+    console.log('------------>',sampleRows);
+    
     trainingData[table_name] = {
       description: tableDescriptions[table_name] || "No description provided.",
       columns: columnNames,
@@ -72,24 +82,23 @@ const getTrainingData = async () => {
     };
   }
 
+  cachedTrainingData = trainingData;
   return trainingData;
 };
 
-// Main controller
 export const generateSQLFromText = async (req, res) => {
   try {
-    const gemini_api_key = gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
+    const gemini_api_key =
+      gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
 
     let { userQuery, symbol } = req.body;
 
     if (!userQuery || !symbol) {
-      return res
-        .status(400)
-        .json({
-          status: 0,
-          message: "Missing parameters",
-          data: { msg: "Missing parameters" },
-        });
+      return res.status(400).json({
+        status: 0,
+        message: "Missing parameters",
+        data: { msg: "Missing parameters" },
+      });
     }
 
     userQuery = userQuery.concat(` in the context of ${symbol} ?`);
@@ -229,22 +238,18 @@ Examples:
     //   totalRecords: queryResults.length
     // });
 
-    res
-      .status(200)
-      .json({
-        status: 1,
-        message: "Success",
-        data: { msg: actualExplanation },
-      });
+    res.status(200).json({
+      status: 1,
+      message: "Success",
+      data: { msg: actualExplanation },
+    });
   } catch (error) {
     console.error("Error generating SQL:", error);
-    res
-      .status(500)
-      .json({
-        status: 0,
-        message: "Server error",
-        data: { msg: "Server error" },
-      });
+    res.status(500).json({
+      status: 0,
+      message: "Server error",
+      data: { msg: "Server error" },
+    });
   }
 };
 
