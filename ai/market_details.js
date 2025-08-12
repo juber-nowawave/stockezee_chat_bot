@@ -1,9 +1,9 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import dotenv from "dotenv";
+import dotEnv from "dotenv";
 import { sequelize as db } from "../models/index.js";
-import { json } from "sequelize";
+import { getModelInstance } from "../utils/ai_models.js";
 
-dotenv.config();
+dotEnv.config();
 
 const gemini_keys = [
   "AIzaSyD7pZbsR0TTYanab0tWo4YLuAslgQm99m8",
@@ -58,7 +58,7 @@ let cachedTrainingData = null;
 
 const getTrainingData = async () => {
   if (cachedTrainingData) return cachedTrainingData;
-  
+
   const tables = Object.keys(tableDescriptions);
   const trainingData = {};
 
@@ -80,14 +80,16 @@ const getTrainingData = async () => {
       `);
 
       trainingData[table_name] = {
-        description: tableDescriptions[table_name] || "No description provided.",
+        description:
+          tableDescriptions[table_name] || "No description provided.",
         columns: columnNames,
         sample_rows: sampleRows,
       };
     } catch (error) {
       console.error(`Error fetching data for table ${table_name}:`, error);
       trainingData[table_name] = {
-        description: tableDescriptions[table_name] || "No description provided.",
+        description:
+          tableDescriptions[table_name] || "No description provided.",
         columns: [],
         sample_rows: [],
       };
@@ -98,24 +100,11 @@ const getTrainingData = async () => {
   return trainingData;
 };
 
-const modelInstances = new Map();
-
-const getModelInstance = (apiKey) => {
-  if (!modelInstances.has(apiKey)) {
-    modelInstances.set(apiKey, new ChatGoogleGenerativeAI({
-      model: process.env.GOOGLE_MODEL || "gemini-1.5-flash",
-      apiKey: apiKey,
-      temperature: 0.1,
-    }));
-  }
-  return modelInstances.get(apiKey);
-};
-
-export const generateSQLFromText = async (req, res) => {
+export const market_details_ai = async (req, res) => {
   try {
-    let { userQuery, symbol } = req.body;
+    let { userQuery } = req.body;
 
-    if (!userQuery || !symbol) {
+    if (!userQuery) {
       return res.status(400).json({
         status: 0,
         message: "Missing parameters",
@@ -123,12 +112,13 @@ export const generateSQLFromText = async (req, res) => {
       });
     }
 
-    const contextualQuery = userQuery.concat(` in the context of ${symbol}`);
+    const contextualQuery = userQuery;
     const trainingData = await getTrainingData();
-    const gemini_api_key = gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
+    const gemini_api_key =
+      gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
     const model = getModelInstance(gemini_api_key);
 
-const prompt = `
+    const prompt = `
 You are a financial data assistant that generates PostgreSQL queries AND crafts natural, conversational explanations based on the query results.
 
 DATABASE STRUCTURE:
@@ -136,24 +126,42 @@ ${JSON.stringify(trainingData, null, 2)}
 
 TASK:
 Given a user’s query, do BOTH in one step:
-1. Identify the single most relevant table from the schema above.
-2. Write a valid PostgreSQL SELECT query using the correct column names.
-3. Always include symbol/symbol_name in the WHERE clause.
-4. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
-5. The explanation should be conversational, like a financial advisor talking to a client.
+1. Determine if the query is STOCK-SPECIFIC (about a single symbol/company) or MARKET-LEVEL (about multiple stocks or rankings).
+2. Identify the most relevant table from the schema above.
+3. Do NOT use UNION. Prefer selecting from just one logical table.
+4. Write a valid PostgreSQL SELECT query using the correct column names.
+5. For STOCK-SPECIFIC queries:
+   - Always include symbol or symbol_name in the WHERE clause.
+6. For MARKET-LEVEL queries:
+   - Handle filters (e.g., high > 1000), rankings (e.g., top 5 by close), or comparisons (e.g., biggest gainers).
+7. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
+8. The explanation should be conversational, like a financial advisor talking to a client.
 
 FORMATTING RULES:
 - Output only a JSON object with "sql" and "explanation" keys.
-- Do not include HTML tags, markdown, line breaks like \n\n, \\n, or extra symbols.
+- Do not include HTML tags, markdown, or escape characters like \\n or \\t.
 - For prices, display column names in double curly braces, e.g., {{close}}, {{high}}, {{low}}, {{open}}.
 - For company info, summarize naturally in full sentences.
-- Keep explanations concise but informative — not too short.
+- Keep explanations concise but insightful.
+- If the query result contains multiple rows, format the answer using double square brackets [[ ]] to indicate repeating items.  
+Inside the brackets, use curly braces { } for column names that should be dynamically replaced with values from the database.  
+For price columns, format as ₹{column_name}.  
 
+Example:  
+Question: "Tell me Two stocks whose current price is higher than 1000 rupees"  
+Data:  
+[
+  { symbol_name: 'MRF', current_price: '141121.00' },
+  { symbol_name: 'PAGEIND', current_price: '44910.00' }
+]  
+
+AI Output should be:  
+[[{symbol_name}: ₹{current_price}]]
 STYLE GUIDELINES FOR EXPLANATION:
-- For price data: “KPIGREEN’s latest closing price is ₹985.50”
-- For company info: “KPIGREEN is a renewable energy company focused on solar power solutions…”
-- Avoid mentioning databases, SQL, or technical terms.
-- Speak in an advisor tone — clear, confident, and client-focused.
+- STOCK-SPECIFIC: “KPIGREEN’s latest closing price is ₹{{close}}, with today’s high at ₹{{high}} and low at ₹{{low}}.”
+- MARKET-LEVEL: “Here are the top 5 stocks by closing price: RELIANCE at ₹{{close}}, TCS at ₹{{close}}, …”
+- Avoid technical jargon like ‘query’ or ‘SQL’.
+- Speak in a confident, client-focused advisor tone.
 
 USER QUERY: "${contextualQuery}"
 
@@ -166,9 +174,9 @@ Return JSON in this format:
 
     const response = await Promise.race([
       model.invoke(prompt),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('AI request timeout')), 10000)
-      )
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("AI request timeout")), 10000)
+      ),
     ]);
 
     const cleanedResponse = response?.content
@@ -179,66 +187,91 @@ Return JSON in this format:
       ?.trim();
 
     if (!cleanedResponse) {
-      throw new Error('Empty AI response');
+      throw new Error("Empty AI response");
     }
 
-    
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error("JSON parse error:", parseError);
-      throw new Error('Invalid JSON response from AI');
+      throw new Error("Invalid JSON response from AI");
     }
-    
+
     if (!parsedResponse.sql) {
-      throw new Error('No SQL query generated');
+      throw new Error("No SQL query generated");
     }
 
     let finalResponse = parsedResponse.explanation;
-    
+
     try {
       const [results] = await Promise.race([
         db.query(parsedResponse.sql),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Database timeout')), 5000)
-        )
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Database timeout")), 10000)
+        ),
       ]);
+    // console.error("------------0", finalResponse);
 
-      if (results.length > 0) {
+      const match = finalResponse.match(/\[\[(.*?)\]\]/s);
+      if (match) {
+        const templateInside = match[1];
+        console.log('-----matched ',match);
+        
+        let repeatedContent = results
+          .map((row) => {
+            let rowText = templateInside;
+            for (let key in row) {
+              rowText = rowText.replace(
+                new RegExp(`{${key}}`, "g"),
+                row[key]
+              );
+            }
+            return rowText;
+          })
+          .join("\n");
+
+        finalResponse = finalResponse.replace(
+          /\[\[(.*?)\]\]/s,
+          repeatedContent
+        );
+      } else if (results.length == 1 || results.length > 1 ) {
         let result = results[0];
-        for(let key in result){          
-          finalResponse = finalResponse.replace(`{{${key}}}` , result[key]);
+        for (let key in result) {
+          finalResponse = finalResponse.replace(`{{${key}}}`, result[key]);
         }
       } else {
-        finalResponse = `I couldn't find any data for ${symbol}. The symbol might not exist in our database or there might be no recent data available.`;
+        finalResponse = `I couldn't find any data. The information might not exist in our database or there might be no recent data available.`;
       }
 
+      // console.log("------------1", finalResponse);
+      // console.log("------------2", results);
+      // console.log("------------3", parsedResponse.sql);
     } catch (queryError) {
       console.error("Database query error:", queryError);
-      finalResponse = `Unable to fetch data for ${symbol}. Please try again or check if the symbol is correct.`;
+      finalResponse = `Unable to fetch data. Please try again`;
     }
 
     res.status(200).json({
       status: 1,
       message: "Success",
-      data: { 
+      data: {
         msg: finalResponse,
       },
     });
-
   } catch (error) {
+    // console.error("---------- -1", error);
 
-    let errorMsg = "I'm having trouble processing your request right now. Please try again.";
-    
-    if (error.message.includes('timeout')) {
-      errorMsg = "The request is taking longer than expected. Please try with a simpler query.";
+    let errorMsg =
+      "I'm having trouble processing your request right now. Please try again.";
+    if (error.message.includes("timeout")) {
+      errorMsg =
+        "The request is taking longer than expected. Please try with a simpler query.";
     }
-
     res.status(200).json({
       status: 0,
       message: "Processing error",
-      data: { 
+      data: {
         msg: errorMsg,
       },
     });
