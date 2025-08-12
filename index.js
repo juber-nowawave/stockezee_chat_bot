@@ -18,7 +18,7 @@ app.use(cors(corsOptions));
 connectDb();
 
 // Routes
-app.use("/ai/api/chat-bot/query", queryRoutes);
+app.use("/ai/api/chat-bot", queryRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
