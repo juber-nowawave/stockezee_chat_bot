@@ -126,9 +126,7 @@ Given a user’s query, do BOTH in one step:
 2. Do NOT use UNION. Prefer selecting from just one logical table.
 3. Write a valid PostgreSQL SELECT query using the correct column names.
 4. Always include symbol/symbol_name in the WHERE clause.
-5. Instead of actual numeric or text values, output placeholders in double curly braces for all database fields. 
-   Example: {{promoters_share}}, {{fiis_share}}, {{diis_share}}, {{govt_share}}, {{public_share}}.
-   Do NOT guess or make up numbers.
+5. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
 6. The explanation should be conversational, like a financial advisor talking to a client.
 
 FORMATTING RULES:
