@@ -143,17 +143,6 @@ FORMATTING RULES:
 - For prices, display column names in double curly braces, e.g., {{close}}, {{high}}, {{low}}, {{open}}.
 - For company info, summarize naturally in full sentences.
 - Keep explanations concise but insightful.
-- If the query result contains multiple rows, format the answer using double square brackets [[ ]] to indicate repeating items.  
-Inside the brackets, use curly braces { } for column names that should be dynamically replaced with values from the database.  
-For price columns, format as ₹{column_name}.  
-
-Example:  
-Question: "Tell me Two stocks whose current price is higher than 1000 rupees"  
-Data:  
-[
-  { symbol_name: 'MRF', current_price: '141121.00' },
-  { symbol_name: 'PAGEIND', current_price: '44910.00' }
-]  
 
 AI Output should be:  
 [[{symbol_name}: ₹{current_price}]]
@@ -211,42 +200,87 @@ Return JSON in this format:
           setTimeout(() => reject(new Error("Database timeout")), 10000)
         ),
       ]);
-    // console.error("------------0", finalResponse);
+      
+      if (results.length > 1) {
+        const prompt2 = `
+You are a financial data assistant.
+You are given an array of JSON objects representing stock or financial data:
+${JSON.stringify(results, null, 2)}
 
-      const match = finalResponse.match(/\[\[(.*?)\]\]/s);
-      if (match) {
-        const templateInside = match[1];
-        console.log('-----matched ',match);
-        
-        let repeatedContent = results
-          .map((row) => {
-            let rowText = templateInside;
-            for (let key in row) {
-              rowText = rowText.replace(
-                new RegExp(`{${key}}`, "g"),
-                row[key]
-              );
-            }
-            return rowText;
-          })
-          .join("\n");
+TASK:
+Generate a **complete HTML block** containing:
+1. A <h2> heading summarizing the data type and context.
+2. One or more <p> paragraphs providing an enhanced, conversational explanation of the data.
+3. An HTML <table> showing all rows from the array above.
+   - Include column headers from the object keys.
+   - Format numbers with commas.
+   - If a value represents currency, prefix it with ₹.
+   - Make the table clean and minimal with borders, padding, and alternating row colors.
+4. The final HTML should be ready for direct embedding (no Markdown, no JSON, no backticks).
 
-        finalResponse = finalResponse.replace(
-          /\[\[(.*?)\]\]/s,
-          repeatedContent
-        );
-      } else if (results.length == 1 || results.length > 1 ) {
-        let result = results[0];
-        for (let key in result) {
-          finalResponse = finalResponse.replace(`{{${key}}}`, result[key]);
+Example structure:
+<h2>Top 5 Stocks with Price Above ₹1,000</h2>
+<p>Here’s a list of stocks currently trading well above the ₹1,000 mark...</p>
+<table>...</table>
+<p>From the above table, we can see that...</p>
+`;
+
+        const response2 = await Promise.race([
+          model.invoke(prompt2),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("AI request timeout")), 20000)
+          ),
+        ]);
+
+        const cleanedHTML = response2?.content
+          ?.trim()
+          ?.replace(/^```html/i, "")
+          ?.replace(/^```/, "")
+          ?.replace(/```$/, "")
+          ?.trim();
+
+        if (!cleanedHTML) {
+          throw new Error("Empty AI HTML response");
         }
-      } else {
-        finalResponse = `I couldn't find any data. The information might not exist in our database or there might be no recent data available.`;
-      }
 
-      // console.log("------------1", finalResponse);
-      // console.log("------------2", results);
-      // console.log("------------3", parsedResponse.sql);
+        finalResponse = cleanedHTML;
+      } else if (results.length === 1) {
+        const result = results[0];
+        const prompt2 = `
+You are a financial data assistant.
+You are given this stock data:
+${JSON.stringify(result, null, 2)}
+
+TASK:
+Generate a **complete HTML block** containing:
+1. A <h2> heading summarizing the stock.
+2. One or more <p> paragraphs explaining the key details in plain language.
+3. No table needed since this is only one record.
+4. The final HTML should be ready for direct embedding (no Markdown, no JSON, no backticks).
+`;
+
+        const response2 = await Promise.race([
+          model.invoke(prompt2),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("AI request timeout")), 20000)
+          ),
+        ]);
+
+        const cleanedHTML = response2?.content
+          ?.trim()
+          ?.replace(/^```html/i, "")
+          ?.replace(/^```/, "")
+          ?.replace(/```$/, "")
+          ?.trim();
+
+        if (!cleanedHTML) {
+          throw new Error("Empty AI HTML response");
+        }
+
+        finalResponse = cleanedHTML;
+      } else {
+        finalResponse = `<p>I couldn't find any data for ${symbol}. The symbol might not exist in our database or there might be no recent data available.</p>`;
+      }
     } catch (queryError) {
       console.error("Database query error:", queryError);
       finalResponse = `Unable to fetch data. Please try again`;
