@@ -132,7 +132,7 @@ Given a user’s query, do BOTH in one step:
 FORMATTING RULES:
 - Output only a JSON object with "sql" and "explanation" keys.
 - Do not include HTML tags, markdown, line breaks like \n\n, \\n, or extra symbols.
-- For prices, display column names in double curly braces, e.g., {{close}}, {{high}}, {{low}}, {{open}}.
+- For prices, display column names in double curly braces, e.g., {{close}}, {{high}}, {{low}}, {{open}} , do'nt used A%, B%, Y%, Z% etc insted of double curly braces.
 - For company info, summarize naturally in full sentences.
 - Keep explanations concise but informative — not too short.
 
