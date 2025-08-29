@@ -8,8 +8,6 @@ dotEnv.config();
 const gemini_keys = [
   "AIzaSyD7pZbsR0TTYanab0tWo4YLuAslgQm99m8",
   "AIzaSyA_WI8rxxY3J3UFApsqPwDgTvRzm9WP1pw",
-  "AIzaSyBY3JWyJ8rEyZDHvsvSBNQdKVUiYVeM2go",
-  "AIzaSyAok5PFvom8yNNfeEB-2ssFaxA-OyvvXbg",
   "AIzaSyAcq-na7B01r4jmW04wFiQq1fId2hfJluI",
   "AIzaSyD0q1BotGSOkyfUQll08f7P-MhOlJD4CYI",
   "AIzaSyAjXKODb8JtQoxMCLAFmN9piqArr_qbc6c",
@@ -136,19 +134,22 @@ Given a user’s query, do BOTH in one step:
    - Handle filters (e.g., high > 1000), rankings (e.g., top 5 by close), or comparisons (e.g., biggest gainers).
 7. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
 8. The explanation should be conversational, like a financial advisor talking to a client.
+9. If the user greets you formally with phrases like "Hey", "Hello", etc., you should also respond formally with replies such as "Hey, how can I help you?" or "Hello, how are you?" etc
 
 FORMATTING RULES:
 - Output only a JSON object with "sql" and "explanation" keys.
 - Do not include HTML tags, markdown, or escape characters like \\n or \\t.
 - For prices, display column names in double curly braces, e.g., {{close}}, {{high}}, {{low}}, {{open}}.
 - For company info, summarize naturally in full sentences.
+- if user asked for large data greater than 20 so Maximum data limit should be 20 , add limit in sql query
+- Always handle division by zero using NULLIF in the denominator (e.g., col1 / NULLIF(col2, 0)).
 - Keep explanations concise but insightful.
 
 AI Output should be:  
 [[{symbol_name}: ₹{current_price}]]
 STYLE GUIDELINES FOR EXPLANATION:
 - STOCK-SPECIFIC: “KPIGREEN’s latest closing price is ₹{{close}}, with today’s high at ₹{{high}} and low at ₹{{low}}.”
-- MARKET-LEVEL: “Here are the top 5 stocks by closing price: RELIANCE at ₹{{close}}, TCS at ₹{{close}}, …”
+- MARKET-LEVEL: “Here are the top 5 stocks by closing price: RELIANCE at ₹{{close}}, TCS at ₹{{close}}, …” 
 - Avoid technical jargon like ‘query’ or ‘SQL’.
 - Speak in a confident, client-focused advisor tone.
 
@@ -187,20 +188,31 @@ Return JSON in this format:
       throw new Error("Invalid JSON response from AI");
     }
 
+    let finalResponse = parsedResponse.explanation;
+
+    if (!parsedResponse.sql && finalResponse) {
+      return res.status(200).json({
+        status: 1,
+        message: "Success",
+        data: {
+          msg: finalResponse,
+        },
+      });
+    }
+
     if (!parsedResponse.sql) {
       throw new Error("No SQL query generated");
     }
-
-    let finalResponse = parsedResponse.explanation;
 
     try {
       const [results] = await Promise.race([
         db.query(parsedResponse.sql),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Database timeout")), 10000)
+          setTimeout(() => reject(new Error("Database timeout")), 20000)
         ),
       ]);
-      
+      console.log("---------------", results);
+
       if (results.length > 1) {
         const prompt2 = `
 You are a financial data assistant.
@@ -231,7 +243,7 @@ Example structure:
             setTimeout(() => reject(new Error("AI request timeout")), 20000)
           ),
         ]);
-
+        console.log("---------------", response2);
         const cleanedHTML = response2?.content
           ?.trim()
           ?.replace(/^```html/i, "")
@@ -294,7 +306,7 @@ Generate a **complete HTML block** containing:
       },
     });
   } catch (error) {
-    // console.error("---------- -1", error);
+    console.error("---------- -1", error);
 
     let errorMsg =
       "I'm having trouble processing your request right now. Please try again.";

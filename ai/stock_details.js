@@ -7,8 +7,6 @@ dotenv.config();
 const gemini_keys = [
   "AIzaSyD7pZbsR0TTYanab0tWo4YLuAslgQm99m8",
   "AIzaSyA_WI8rxxY3J3UFApsqPwDgTvRzm9WP1pw",
-  "AIzaSyBY3JWyJ8rEyZDHvsvSBNQdKVUiYVeM2go",
-  "AIzaSyAok5PFvom8yNNfeEB-2ssFaxA-OyvvXbg",
   "AIzaSyAcq-na7B01r4jmW04wFiQq1fId2hfJluI",
   "AIzaSyD0q1BotGSOkyfUQll08f7P-MhOlJD4CYI",
   "AIzaSyAjXKODb8JtQoxMCLAFmN9piqArr_qbc6c",
