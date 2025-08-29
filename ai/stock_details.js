@@ -1,7 +1,7 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import dotenv from "dotenv";
 import { sequelize as db } from "../models/index.js";
-import {getModelInstance} from "../utils/ai_models.js"
+import { getModelInstance } from "../utils/ai_models.js";
 dotenv.config();
 
 const gemini_keys = [
@@ -55,7 +55,7 @@ let cachedTrainingData = null;
 
 const getTrainingData = async () => {
   if (cachedTrainingData) return cachedTrainingData;
-  
+
   const tables = Object.keys(tableDescriptions);
   const trainingData = {};
 
@@ -77,14 +77,16 @@ const getTrainingData = async () => {
       `);
 
       trainingData[table_name] = {
-        description: tableDescriptions[table_name] || "No description provided.",
+        description:
+          tableDescriptions[table_name] || "No description provided.",
         columns: columnNames,
         sample_rows: sampleRows,
       };
     } catch (error) {
       console.error(`Error fetching data for table ${table_name}:`, error);
       trainingData[table_name] = {
-        description: tableDescriptions[table_name] || "No description provided.",
+        description:
+          tableDescriptions[table_name] || "No description provided.",
         columns: [],
         sample_rows: [],
       };
@@ -109,10 +111,11 @@ export const stock_details_ai = async (req, res) => {
 
     const contextualQuery = userQuery.concat(` in the context of ${symbol}`);
     const trainingData = await getTrainingData();
-    const gemini_api_key = gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
+    const gemini_api_key =
+      gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
     const model = getModelInstance(gemini_api_key);
 
-const prompt = `
+    const prompt = `
 You are a financial data assistant that generates PostgreSQL queries AND crafts natural, conversational explanations based on the query results.
 
 DATABASE STRUCTURE:
@@ -126,6 +129,9 @@ Given a user’s query, do BOTH in one step:
 4. Always include symbol/symbol_name in the WHERE clause.
 5. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
 6. The explanation should be conversational, like a financial advisor talking to a client.
+7. If the user greets you formally with phrases like "Hey", "Hello", etc., you should also respond formally with replies such as "Hey, how can I help you?" or "Hello, how can I assist you today" etc
+8. If the user enters an inappropriate or invalid query — such as random symbols ($@$%#@#@#@), etc — respond politely with a message like: "Sorry, I couldn’t understand your query. Please enter a valid stock query." Always guide the user back to providing a meaningful financial query.
+
 
 FORMATTING RULES:
 - Output only a JSON object with "sql" and "explanation" keys.
@@ -152,9 +158,9 @@ Return JSON in this format:
 
     const response = await Promise.race([
       model.invoke(prompt),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('AI request timeout')), 10000)
-      )
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("AI request timeout")), 10000)
+      ),
     ]);
 
     const cleanedResponse = response?.content
@@ -165,41 +171,49 @@ Return JSON in this format:
       ?.trim();
 
     if (!cleanedResponse) {
-      throw new Error('Empty AI response');
+      throw new Error("Empty AI response");
     }
 
-    
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error("JSON parse error:", parseError);
-      throw new Error('Invalid JSON response from AI');
-    }
-    
-    if (!parsedResponse.sql) {
-      throw new Error('No SQL query generated');
+      throw new Error("Invalid JSON response from AI");
     }
 
     let finalResponse = parsedResponse.explanation;
+    console.log(parsedResponse);
     
+    if (!parsedResponse.sql && finalResponse) {
+      return res.status(200).json({
+        status: 1,
+        message: "Success",
+        data: {
+          msg: finalResponse,
+        },
+      });
+    }
+
+    if (!parsedResponse.sql) {
+      throw new Error("No SQL query generated");
+    }
     try {
       const [results] = await Promise.race([
         db.query(parsedResponse.sql),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Database timeout')), 5000)
-        )
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Database timeout")), 5000)
+        ),
       ]);
 
       if (results.length > 0) {
         let result = results[0];
-        for(let key in result){          
-          finalResponse = finalResponse.replace(`{{${key}}}` , result[key]);
+        for (let key in result) {
+          finalResponse = finalResponse.replace(`{{${key}}}`, result[key]);
         }
       } else {
         finalResponse = `I couldn't find any data for ${symbol}. The symbol might not exist in our database or there might be no recent data available.`;
       }
-
     } catch (queryError) {
       console.error("Database query error:", queryError);
       finalResponse = `Unable to fetch data for ${symbol}. Please try again or check if the symbol is correct.`;
@@ -208,23 +222,23 @@ Return JSON in this format:
     res.status(200).json({
       status: 1,
       message: "Success",
-      data: { 
+      data: {
         msg: finalResponse,
       },
     });
-
   } catch (error) {
+    let errorMsg =
+      "I'm having trouble processing your request right now. Please try again.";
 
-    let errorMsg = "I'm having trouble processing your request right now. Please try again.";
-    
-    if (error.message.includes('timeout')) {
-      errorMsg = "The request is taking longer than expected. Please try with a simpler query.";
+    if (error.message.includes("timeout")) {
+      errorMsg =
+        "The request is taking longer than expected. Please try with a simpler query.";
     }
 
     res.status(200).json({
       status: 0,
       message: "Processing error",
-      data: { 
+      data: {
         msg: errorMsg,
       },
     });
