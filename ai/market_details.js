@@ -211,7 +211,6 @@ Return JSON in this format:
           setTimeout(() => reject(new Error("Database timeout")), 20000)
         ),
       ]);
-      console.log("---------------", results);
 
       if (results.length > 1) {
         const prompt2 = `
@@ -243,7 +242,6 @@ Example structure:
             setTimeout(() => reject(new Error("AI request timeout")), 20000)
           ),
         ]);
-        console.log("---------------", response2);
         const cleanedHTML = response2?.content
           ?.trim()
           ?.replace(/^```html/i, "")
@@ -306,8 +304,6 @@ Generate a **complete HTML block** containing:
       },
     });
   } catch (error) {
-    console.error("---------- -1", error);
-
     let errorMsg =
       "I'm having trouble processing your request right now. Please try again.";
     if (error.message.includes("timeout")) {
