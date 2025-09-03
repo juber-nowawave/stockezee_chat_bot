@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import queryRoutes from "./routers/ai_chat_bot.Route.js";
 import {connectDb} from "./models/index.js";
+import company_strength_analysis_cron from "./jobs/company_strength_analysis.Job.js"
 
 dotenv.config();
 const app = express();
@@ -19,6 +20,9 @@ connectDb();
 
 // Routes
 app.use("/ai/api/chat-bot", queryRoutes);
+
+// Cron Jobs
+// company_strength_analysis_cron();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
