@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { sequelize as db } from "../models/index.js";
 import { company_strength_analysis_ai } from "../ai/company_strength_analysis.js";
 import moment from "moment";
+import long_term_stock_recommend_analysis from "../utils/long_term_stock_recommend_analysis.js"
 
 const company_strength_analysis = async () => {
   try {
@@ -25,7 +26,7 @@ const company_strength_analysis = async () => {
     const symbol_name_arr = symbol_name_data.map((item) => item.symbol_name);
     const size = symbol_name_arr.length;
     for (let i = 0; i < size; i++) {
-      console.log(`==== Remaining ${size - i} symbols ====`);
+      console.log(`==== Remaining ${size - i} symbols ====\n`);
       const symbol_name = symbol_name_arr[i];
       const company_ratio_analysis_data = await db.query(
         `select * from nse_company_details ncd where symbol_name = '${symbol_name}'`,
@@ -42,7 +43,7 @@ const company_strength_analysis = async () => {
       );
 
       const company_peers_data = await db.query(
-        `select * from nse_company_peers ncd where symbol_name = '${symbol_name}'`,
+        `select * from nse_company_peers ncd where parent_symbol_name = '${symbol_name}'`,
         {
           type: db.Sequelize.QueryTypes.SELECT,
         }
@@ -78,23 +79,28 @@ const company_strength_analysis = async () => {
         company_quarterly_financials_data: company_financials_data,
         company_profile_data,
       };
-
-    //   console.log('-------',data);
       
-
+      // console.log(data)
       const response = await company_strength_analysis_ai(data, symbol_name);
       const prons = response.PRONS;
       const crons = response.CRONS;
+      const recommendation_data = long_term_stock_recommend_analysis(data);
+      const recommend = recommendation_data?.recommendation;
+      const recommend_summary = recommendation_data?.summary;
+      console.log(recommendation_data.summary);
+      
       console.log(
         symbol_name,
         " ---------------------------------------------------------------------------------------------------------------------------------------"
       );
-      console.log(prons);
-      console.log(crons);
+      console.log(response,'\n');
+      
       await db.query(
         `UPDATE nse_company_details 
          SET crons = ARRAY[:crons]::text[],
              prons = ARRAY[:prons]::text[],
+             long_term_recommend = :recommend,
+             long_term_recommend_summary = :recommend_summary,
              time = :current_time,
              created_at = :current_date
          WHERE symbol_name = :symbol_name`,
@@ -102,6 +108,8 @@ const company_strength_analysis = async () => {
           replacements: {
             prons,
             crons,
+            recommend,
+            recommend_summary,
             symbol_name,
             current_date,
             current_time,
