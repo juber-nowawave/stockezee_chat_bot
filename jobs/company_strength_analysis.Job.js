@@ -87,20 +87,20 @@ const company_strength_analysis = async () => {
       const recommendation_data = long_term_stock_recommend_analysis(data);
       const recommend = recommendation_data?.recommendation;
       const recommend_summary = recommendation_data?.summary;
-      console.log(recommendation_data.summary);
+      const recommend_score = recommendation_data?.finalScore;
+      console.log(recommendation_data);
       
       console.log(
         symbol_name,
         " ---------------------------------------------------------------------------------------------------------------------------------------"
       );
-      console.log(response,'\n');
-      
       await db.query(
         `UPDATE nse_company_details 
          SET crons = ARRAY[:crons]::text[],
              prons = ARRAY[:prons]::text[],
              long_term_recommend = :recommend,
              long_term_recommend_summary = :recommend_summary,
+             long_term_recommend_score = :recommend_score,
              time = :current_time,
              created_at = :current_date
          WHERE symbol_name = :symbol_name`,
@@ -110,6 +110,7 @@ const company_strength_analysis = async () => {
             crons,
             recommend,
             recommend_summary,
+            recommend_score,
             symbol_name,
             current_date,
             current_time,
