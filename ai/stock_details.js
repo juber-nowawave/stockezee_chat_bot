@@ -19,9 +19,9 @@ const gemini_keys = [
 
 const tableDescriptions = {
   nse_eq_stock_data_daily:
-    "This table contains live stock data for the current trading day.",
+    "This table contains live stock data for the current trading day. such as high, low, close, open, high52, low52, last_trade_price (ltp) etc",
   nse_eq_stock_historical_daily:
-    "This table contains end-of-day (EOD) data for previous trading days.",
+    "This table contains historical equity stock data for up to the last 8 months, including daily records such as yesterday’s prices , 8 september 2025 and data from the past N days. table column such as such as high, low, close, open, high52, low52, last_trade_price (ltp) etc",
   nse_eq_stock_data_intraday_daily:
     "This table contains intraday stock price data captured during market hours.",
   nse_company_bio:
@@ -129,14 +129,14 @@ Given a user’s query, do BOTH in one step:
 4. Always include symbol/symbol_name in the WHERE clause.
 5. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
 6. The explanation should be conversational, like a financial advisor talking to a client.
-7. If the user greets you formally with phrases like "Hey", "Hello", etc., you should also respond formally with replies such as "Hey, how can I help you?" or "Hello, how can I assist you today" etc
+7. If the user greets you formally with phrases like "Hey", "Hello", etc., you should also respond formally with replies such as "Hey, how can I help you?" or "Hello, how can I assist you today", etc. user query such as "how are you" etc so you have to response like "I am fine what about you" etc and in this case do'nt generate sql query and Set the "sql" key in the JSON output to null
 8. If the user enters an inappropriate or invalid query — such as random symbols ($@$%#@#@#@), etc — respond politely with a message like: "Sorry, I couldn’t understand your query. Please enter a valid stock query." Always guide the user back to providing a meaningful financial query.
 
 
 FORMATTING RULES:
 - Output only a JSON object with "sql" and "explanation" keys.
 - Do not include HTML tags, markdown, line breaks like \n\n, \\n, or extra symbols.
-- For ALL values from the database (not just prices), display the **actual column names** inside double curly braces, e.g., {{close}}, {{high}}, {{promoters}}, {{fiis}}, {{diis}}, {{government}}, {{public}}.
+- For ALL values from the database (not just prices), display the **actual column names** inside double curly braces, e.g., {{close}}, {{high}}, {{promoters}}, {{fiis}}, {{diis}}, {{government}}, {{public}} , do'nt add curly braces {{}} in sql query.
 - Never use generic placeholders like X, Y, Z, A, B. Always use the real column name from the table.
 - For company info, summarize naturally in full sentences.
 - Keep explanations concise but informative — not too short.
@@ -183,8 +183,7 @@ Return JSON in this format:
     }
 
     let finalResponse = parsedResponse.explanation;
-    // console.log('------->',parsedResponse);
-    
+
     if (!parsedResponse.sql && finalResponse) {
       return res.status(200).json({
         status: 1,
