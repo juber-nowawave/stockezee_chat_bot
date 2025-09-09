@@ -244,13 +244,13 @@ function calculate_long_term_stock_recommendation(stockData) {
 function long_term_stock_recommend_analysis(stockData) {
     const analysis = calculate_long_term_stock_recommendation(stockData);
     
-    console.log("=== STOCK ANALYSIS REPORT ===");
-    console.log(`Company: ${stockData.company_ratio_analysis_data[0].company_name}`);
-    console.log(`Current Price: ₹${stockData.company_ratio_analysis_data[0].current_price}`);
-    console.log(`Final Score: ${analysis.finalScore}/100`);
-    console.log(`Recommendation: ${analysis.recommendation ? 'BUY' : 'AVOID/HOLD'}`);
-    console.log(`Risk Level: ${analysis.riskLevel}`);
-    console.log(`Summary: ${analysis.summary}`);
+    // console.log("=== STOCK ANALYSIS REPORT ===");
+    // console.log(`Company: ${stockData.company_ratio_analysis_data[0].company_name}`);
+    // console.log(`Current Price: ₹${stockData.company_ratio_analysis_data[0].current_price}`);
+    // console.log(`Final Score: ${analysis.finalScore}/100`);
+    // console.log(`Recommendation: ${analysis.recommendation ? 'BUY' : 'AVOID/HOLD'}`);
+    // console.log(`Risk Level: ${analysis.riskLevel}`);
+    // console.log(`Summary: ${analysis.summary}`);
     
     // console.log("\n=== DETAILED ANALYSIS ===");
     // analysis.criteria.forEach(criterion => {

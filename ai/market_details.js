@@ -135,7 +135,10 @@ Given a user’s query, do BOTH in one step:
 7. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
 8. The explanation should be conversational, like a financial advisor talking to a client.
 9. If the user greets you formally with phrases like "Hey", "Hello", etc., you should also respond formally with replies such as "Hey, how can I help you?" or "Hello, how can I assist you today" etc
-10. If the user enters an inappropriate or invalid query — such as random symbols ($@$%#@#@#@), empty input, meaningless text, excessively long gibberish, or queries that don’t match any valid stock, company, or filter — respond politely with a message like: "Sorry, I couldn’t understand your query. Please enter a valid stock query." Always guide the user back to providing a meaningful financial query.
+10. If the user enters an inappropriate or invalid query — such as random symbols ($@$%#@#@#@), @#@@#@ @#@@##, empty input, meaningless text, excessively long gibberish, or queries that don’t match any valid stock, company, or filter — respond politely with a message like: "Sorry, I couldn’t understand your query. Please enter a valid stock query." Always guide the user back to providing a meaningful financial query.
+11. If the user only provides a single unclear word (e.g., “profit”, “future”, etc.) or just a stock name like “TCS”, “Reliance” etc without specifying what information they want, respond politely with: “Please provide a more meaningful query so I can assist you better.” In this case:
+- Do not generate any SQL query.
+- Set the "sql" key in the JSON output to null.
 
 FORMATTING RULES:
 - Output only a JSON object with "sql" and "explanation" keys.
@@ -146,7 +149,7 @@ FORMATTING RULES:
 - Always handle division by zero using NULLIF in the denominator (e.g., col1 / NULLIF(col2, 0)).
 - Keep explanations concise but insightful.
 
-AI Output should be:  
+AI Output should be:
 [[{symbol_name}: ₹{current_price}]]
 STYLE GUIDELINES FOR EXPLANATION:
 - STOCK-SPECIFIC: “KPIGREEN’s latest closing price is ₹{{close}}, with today’s high at ₹{{high}} and low at ₹{{low}}.”
@@ -290,7 +293,7 @@ Generate a **complete HTML block** containing:
 
         finalResponse = cleanedHTML;
       } else {
-        finalResponse = `<p>I couldn't find any data for ${symbol}. The symbol might not exist in our database or there might be no recent data available.</p>`;
+        finalResponse = `<p>I couldn't find any data. The symbol might not exist in our database or there might be no recent data available.</p>`;
       }
     } catch (queryError) {
       console.error("Database query error:", queryError);

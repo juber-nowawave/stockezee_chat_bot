@@ -26,7 +26,7 @@ const company_strength_analysis = async () => {
     const symbol_name_arr = symbol_name_data.map((item) => item.symbol_name);
     const size = symbol_name_arr.length;
     for (let i = 0; i < size; i++) {
-      console.log(`==== Remaining ${size - i} symbols ====\n`);
+      // console.log(`==== Remaining ${size - i} symbols ====\n`);
       const symbol_name = symbol_name_arr[i];
       const company_ratio_analysis_data = await db.query(
         `select * from nse_company_details ncd where symbol_name = '${symbol_name}'`,
@@ -88,12 +88,12 @@ const company_strength_analysis = async () => {
       const recommend = recommendation_data?.recommendation;
       const recommend_summary = recommendation_data?.summary;
       const recommend_score = recommendation_data?.finalScore;
-      console.log(recommendation_data);
+      // console.log(recommendation_data);
       
-      console.log(
-        symbol_name,
-        " ---------------------------------------------------------------------------------------------------------------------------------------"
-      );
+      // console.log(
+      //   symbol_name,
+      //   " ---------------------------------------------------------------------------------------------------------------------------------------"
+      // );
       await db.query(
         `UPDATE nse_company_details 
          SET crons = ARRAY[:crons]::text[],

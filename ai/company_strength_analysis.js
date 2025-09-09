@@ -24,7 +24,6 @@ export const company_strength_analysis_ai = async (data, symbol) => {
     const gemini_api_key =
       gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
     const model = getModelInstance(gemini_api_key);
-    console.log("gemini key-: ", gemini_api_key);
 
     const prompt = `
 You are a financial data assistant. Based on the given structured company data, analyze it and generate a natural, conversational summary of the company's **Prons** (strengths/positives) and **Crons** (risks/negatives).  

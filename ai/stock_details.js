@@ -183,7 +183,7 @@ Return JSON in this format:
     }
 
     let finalResponse = parsedResponse.explanation;
-    console.log(parsedResponse);
+    // console.log(parsedResponse);
     
     if (!parsedResponse.sql && finalResponse) {
       return res.status(200).json({
