@@ -183,7 +183,7 @@ Return JSON in this format:
     }
 
     let finalResponse = parsedResponse.explanation;
-    // console.log(parsedResponse);
+    // console.log('------->',parsedResponse);
     
     if (!parsedResponse.sql && finalResponse) {
       return res.status(200).json({
@@ -216,7 +216,7 @@ Return JSON in this format:
       }
     } catch (queryError) {
       console.error("Database query error:", queryError);
-      finalResponse = `Unable to fetch data for ${symbol}. Please try again or check if the symbol is correct.`;
+      finalResponse = `Unable to fetch data for ${symbol}. Please try again or check if the symbol or query is valid.`;
     }
 
     res.status(200).json({
