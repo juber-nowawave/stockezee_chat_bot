@@ -2,7 +2,8 @@ import cron from "node-cron";
 import { sequelize as db } from "../models/index.js";
 import { company_strength_analysis_ai } from "../ai/company_strength_analysis.js";
 import moment from "moment";
-import long_term_stock_recommend_analysis from "../utils/long_term_stock_recommend_analysis.js"
+import long_term_stock_recommend_analysis from "../utils/long_term_stock_recommend_analysis.js";
+import analyze_stock_scores from "../utils/stock_scores_analysis.js";
 
 const company_strength_analysis = async () => {
   try {
@@ -26,7 +27,7 @@ const company_strength_analysis = async () => {
     const symbol_name_arr = symbol_name_data.map((item) => item.symbol_name);
     const size = symbol_name_arr.length;
     for (let i = 0; i < size; i++) {
-      // console.log(`==== Remaining ${size - i} symbols ====\n`);
+      console.log(`==== Remaining ${size - i} symbols ====\n`);
       const symbol_name = symbol_name_arr[i];
       const company_ratio_analysis_data = await db.query(
         `select * from nse_company_details ncd where symbol_name = '${symbol_name}'`,
@@ -79,25 +80,32 @@ const company_strength_analysis = async () => {
         company_quarterly_financials_data: company_financials_data,
         company_profile_data,
       };
+
+      // const stock_scores_data = analyze_stock_scores(data, symbol_name);
       
-      // console.log(data)
       const response = await company_strength_analysis_ai(data, symbol_name);
-      const prons = response.PRONS;
-      const crons = response.CRONS;
+      const strengths = response.STRENGTHS;
+      const weakness = response.WEAKNESSES;
+      const opportunities = response.OPPORTUNITIES;
+      const threats = response.THREATS;
+      
+      console.log("-------->", response);
       const recommendation_data = long_term_stock_recommend_analysis(data);
       const recommend = recommendation_data?.recommendation;
       const recommend_summary = recommendation_data?.summary;
       const recommend_score = recommendation_data?.finalScore;
-      // console.log(recommendation_data);
-      
-      // console.log(
-      //   symbol_name,
-      //   " ---------------------------------------------------------------------------------------------------------------------------------------"
-      // );
+
+      console.log(
+        symbol_name,
+        " ------------------------------------------------------------------------------------------------------------------------------------------------"
+      );
+
       await db.query(
         `UPDATE nse_company_details 
-         SET crons = ARRAY[:crons]::text[],
-             prons = ARRAY[:prons]::text[],
+         SET strengths = ARRAY[:strengths]::text[],
+             weakness = ARRAY[:weakness]::text[],    
+             opportunities = ARRAY[:opportunities]::text[],
+             threats = ARRAY[:threats]::text[],
              long_term_recommend = :recommend,
              long_term_recommend_summary = :recommend_summary,
              long_term_recommend_score = :recommend_score,
@@ -106,8 +114,10 @@ const company_strength_analysis = async () => {
          WHERE symbol_name = :symbol_name`,
         {
           replacements: {
-            prons,
-            crons,
+            strengths,
+            weakness,
+            opportunities,
+            threats,
             recommend,
             recommend_summary,
             recommend_score,
@@ -119,7 +129,7 @@ const company_strength_analysis = async () => {
         }
       );
 
-      console.log(`${symbol_name} crons and prons successfully inserted!`);
+      console.log(`${symbol_name} SWOT successfully inserted!`);
     }
   } catch (error) {
     console.error("Error in company strength analysis:", error);
@@ -127,7 +137,7 @@ const company_strength_analysis = async () => {
   }
 };
 
-// company_strength_analysis();
+company_strength_analysis();
 
 const cron_schedule = () => {
   try {

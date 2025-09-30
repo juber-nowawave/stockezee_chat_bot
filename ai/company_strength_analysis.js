@@ -26,36 +26,45 @@ export const company_strength_analysis_ai = async (data, symbol) => {
     const model = getModelInstance(gemini_api_key);
 
     const prompt = `
-You are a financial data assistant. Based on the given structured company data, analyze it and generate a natural, conversational summary of the company's **Prons** (strengths/positives) and **Crons** (risks/negatives).  
+You are a financial data assistant. Based on the given structured company data, analyze it and generate a natural, conversational SWOT summary of the company.  
 
 Guidelines for your response:
 1. Keep the tone professional but easy to understand for an investor.
-2. "Prons" should highlight the company's strong financial metrics, growth, profitability, shareholding confidence, or industry positioning.
-3. "Crons" should highlight concerns such as high debt, declining profits, volatile stock prices, weak returns, or promoter/public shareholding risks.
-4. Use specific numbers and trends from the data (PE ratio, ROE, debt-to-equity, quarterly profits, promoter holdings, recent stock movements, etc.).
-5. Be concise – provide 3–4 key Prons and 3–4 key Crons.
-6. Avoid repeating the same point across both sections.
-7. Output format must strictly be:
-
-Rules:
-1. Each point must strictly be between 180 and 225 characters long. 
-   Do not go below 180 characters. Do not exceed 225 characters. 
-   Count characters, not words.
+2. "Strengths" should highlight the company's strong financial metrics, growth, profitability, shareholding confidence, or industry positioning.
+3. "Weaknesses" should highlight concerns such as high debt, declining profits, volatile stock prices, weak returns, or promoter/public shareholding risks.
+4. "Opportunities" should highlight external factors or growth drivers like industry expansion, new markets, favorable regulations, demand trends, or product diversification.
+5. "Threats" should highlight external risks like competition, regulatory issues, global slowdown, raw material dependency, or market volatility.
+6. Use specific numbers and trends from the data (PE ratio, ROE, debt-to-equity, quarterly profits, promoter holdings, recent stock movements, etc.).
+7. If no valid points exist for a section, return an empty array [] for that section.
+8. Do not repeat the same point across sections.
+9. Each point must strictly be between 180 and 225 characters long. Count characters, not words.
 
 Use this schema:
 
 {
-  "PRONS": [
+  "STRENGTHS": [
     "Point 1",
     "Point 2",
     ...
   ],
-  "CRONS": [
+  "WEAKNESSES": [
+    "Point 1",
+    "Point 2",
+    ...
+  ],
+  "OPPORTUNITIES": [
+    "Point 1",
+    "Point 2",
+    ...
+  ],
+  "THREATS": [
     "Point 1",
     "Point 2",
     ...
   ]
 }
+
+Ensure that all keys (STRENGTHS, WEAKNESSES, OPPORTUNITIES, THREATS) are always present, even if some of them contain an empty array.
 
 DATA:
 ${JSON.stringify(data, null, 2)}
@@ -65,7 +74,7 @@ TASK: Analyze the company data and output JSON as per the schema above.
     const response = await Promise.race([
       model.invoke(prompt),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("AI request timeout")), 10000)
+        setTimeout(() => reject(new Error("AI request timeout")), 100000)
       ),
     ]);
 
