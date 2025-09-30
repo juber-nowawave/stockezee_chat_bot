@@ -23,7 +23,8 @@ function calculate_long_term_stock_recommendation(stockData) {
     
     // 1. VALUATION METRICS (25 points)
     // P/E Ratio Analysis
-    const pe = parseFloat(currentData.stock_p_e);
+
+    const pe = parseFloat(currentData?.stock_p_e);
     if (pe > 0 && pe <= 15) {
         totalScore += 10;
         analysis.criteria.push({ metric: 'P/E Ratio', value: pe, score: 10, status: 'Excellent', note: 'Undervalued stock' });
@@ -40,7 +41,7 @@ function calculate_long_term_stock_recommendation(stockData) {
     maxScore += 10;
     
     // Price to Book Value
-    const pbv = parseFloat(currentData.price_to_book_value);
+    const pbv = parseFloat(currentData?.price_to_book_value);
     if (pbv > 0 && pbv <= 1.5) {
         totalScore += 8;
         analysis.criteria.push({ metric: 'P/B Ratio', value: pbv, score: 8, status: 'Excellent', note: 'Trading below book value' });
@@ -57,7 +58,7 @@ function calculate_long_term_stock_recommendation(stockData) {
     maxScore += 8;
     
     // Dividend Yield
-    const divYield = parseFloat(currentData.dividend_yield_per);
+    const divYield = parseFloat(currentData?.dividend_yield_per);
     if (divYield >= 2) {
         totalScore += 7;
         analysis.criteria.push({ metric: 'Dividend Yield', value: `${divYield}%`, score: 7, status: 'Excellent', note: 'Good dividend income' });
@@ -75,7 +76,7 @@ function calculate_long_term_stock_recommendation(stockData) {
     
     // 2. PROFITABILITY METRICS (25 points)
     // Return on Equity (ROE)
-    const roe = parseFloat(currentData.roe_per);
+    const roe = parseFloat(currentData?.roe_per);
     if (roe >= 20) {
         totalScore += 10;
         analysis.criteria.push({ metric: 'ROE', value: `${roe}%`, score: 10, status: 'Excellent', note: 'Superior profitability' });
@@ -92,7 +93,7 @@ function calculate_long_term_stock_recommendation(stockData) {
     maxScore += 10;
     
     // Return on Capital Employed (ROCE)
-    const roce = parseFloat(currentData.roce_per);
+    const roce = parseFloat(currentData?.roce_per);
     if (roce >= 20) {
         totalScore += 8;
         analysis.criteria.push({ metric: 'ROCE', value: `${roce}%`, score: 8, status: 'Excellent', note: 'Efficient capital usage' });
@@ -109,7 +110,7 @@ function calculate_long_term_stock_recommendation(stockData) {
     maxScore += 8;
     
     // Operating Profit Margin
-    const opm = parseFloat(currentData.opm_per);
+    const opm = parseFloat(currentData?.opm_per);
     if (opm >= 20) {
         totalScore += 7;
         analysis.criteria.push({ metric: 'Operating Margin', value: `${opm}%`, score: 7, status: 'Excellent', note: 'High operational efficiency' });
@@ -127,7 +128,7 @@ function calculate_long_term_stock_recommendation(stockData) {
     
     // 3. FINANCIAL HEALTH (20 points)
     // Debt to Equity Ratio
-    const debtEquity = parseFloat(currentData.debt_to_equity);
+    const debtEquity = parseFloat(currentData?.debt_to_equity);
     if (debtEquity <= 0.3) {
         totalScore += 10;
         analysis.criteria.push({ metric: 'Debt/Equity', value: debtEquity, score: 10, status: 'Excellent', note: 'Very low debt' });
@@ -145,7 +146,7 @@ function calculate_long_term_stock_recommendation(stockData) {
     
     // 4. GROWTH METRICS (15 points)
     // Quarterly Profit Growth
-    const qtrProfitGrowth = parseFloat(currentData.qtr_profit_var_per);
+    const qtrProfitGrowth = parseFloat(currentData?.qtr_profit_var_per);
     if (qtrProfitGrowth >= 20) {
         totalScore += 8;
         analysis.criteria.push({ metric: 'Quarterly Profit Growth', value: `${qtrProfitGrowth}%`, score: 8, status: 'Excellent', note: 'Strong profit growth' });
@@ -162,7 +163,7 @@ function calculate_long_term_stock_recommendation(stockData) {
     maxScore += 8;
     
     // Quarterly Sales Growth
-    const qtrSalesGrowth = parseFloat(currentData.qtr_sales_var_per);
+    const qtrSalesGrowth = parseFloat(currentData?.qtr_sales_var_per);
     if (qtrSalesGrowth >= 15) {
         totalScore += 7;
         analysis.criteria.push({ metric: 'Quarterly Sales Growth', value: `${qtrSalesGrowth}%`, score: 7, status: 'Excellent', note: 'Strong revenue growth' });
@@ -180,7 +181,7 @@ function calculate_long_term_stock_recommendation(stockData) {
     
     // 5. OWNERSHIP QUALITY (15 points)
     // Promoter Holding
-    const promoterHolding = parseFloat(currentData.promoter_holding_per);
+    const promoterHolding = parseFloat(currentData?.promoter_holding_per);
     if (promoterHolding >= 50) {
         totalScore += 8;
         analysis.criteria.push({ metric: 'Promoter Holding', value: `${promoterHolding}%`, score: 8, status: 'Excellent', note: 'Strong promoter confidence' });
