@@ -137,7 +137,7 @@ const company_strength_analysis = async () => {
   }
 };
 
-company_strength_analysis();
+// company_strength_analysis();
 
 const cron_schedule = () => {
   try {
