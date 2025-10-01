@@ -169,7 +169,7 @@ Return JSON in this format:
     const response = await Promise.race([
       model.invoke(prompt),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("AI request timeout")), 10000)
+        setTimeout(() => reject(new Error("AI request timeout")), 100000)
       ),
     ]);
 

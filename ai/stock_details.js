@@ -159,7 +159,7 @@ Return JSON in this format:
     const response = await Promise.race([
       model.invoke(prompt),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("AI request timeout")), 10000)
+        setTimeout(() => reject(new Error("AI request timeout")), 100000)
       ),
     ]);
 
@@ -226,6 +226,8 @@ Return JSON in this format:
       },
     });
   } catch (error) {
+    console.log(error);
+    
     let errorMsg =
       "I'm having trouble processing your request right now. Please try again.";
 
