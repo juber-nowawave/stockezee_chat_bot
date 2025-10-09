@@ -243,7 +243,7 @@ You are given an array of JSON objects representing stock or financial data:
 ${JSON.stringify(results, null, 2)}
 
 TASK:
-Generate a **complete HTML block** containing:
+Generate a **complete HTML block without CSS** containing:
 1. A <h2> heading summarizing the data type and context.
 2. One or more <p> paragraphs providing an enhanced, conversational explanation of the data.
 3. An HTML <table> showing all rows from the array above.
@@ -258,6 +258,8 @@ Example structure:
 <p>Here’s a list of stocks currently trading well above the ₹1,000 mark...</p>
 <table>...</table>
 <p>From the above table, we can see that...</p>
+
+NOTE: HTML should be without CSS or any style
 `;
 
         const response2 = await Promise.race([
