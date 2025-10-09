@@ -53,14 +53,14 @@ export const handle_stock_analysis_query = async (req, res) => {
       },
     });
 
+    const max_limit = 10;
     if (today_count >= 10) {
       return res.status(200).json({
-        status: 0,
-        message: "Today's limit exceeded!",
-        data: null,
+        status: 1,
+        message: "success",
+        data: { msg: "Today's limit exceeded!", remaining_limit:0, max_limit},
       });
     }
-    const max_limit = 10;
     req.body = { userQuery, symbol, userid, remaining_limit: max_limit - today_count, max_limit};
     await stock_analysis_ai(req, res);
   } catch (error) {
