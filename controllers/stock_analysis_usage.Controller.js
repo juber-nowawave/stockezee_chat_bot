@@ -30,6 +30,7 @@ export const get_stock_analysis_chatbot_usage = async (req, res) => {
       where: {
         user_id,
         bot_type: "stock analysis",
+        status:'success',
         created_at: current_date,
       },
     });
