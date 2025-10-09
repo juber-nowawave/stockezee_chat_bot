@@ -1,6 +1,7 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import dotEnv from "dotenv";
-import { sequelize as db } from "../models/index.js";
+import db from "../models/index.js";
+import moment from "moment";
 import { getModelInstance } from "../utils/ai_models.js";
 
 dotEnv.config();
@@ -62,7 +63,7 @@ const getTrainingData = async () => {
 
   for (const table_name of tables) {
     try {
-      const [columns] = await db.query(`
+      const [columns] = await db.sequelize.query(`
         SELECT column_name
         FROM information_schema.columns
         WHERE table_name = '${table_name}'
@@ -71,7 +72,7 @@ const getTrainingData = async () => {
 
       const columnNames = columns.map((col) => col.column_name);
 
-      const [sampleRows] = await db.query(`
+      const [sampleRows] = await db.sequelize.query(`
         SELECT * FROM ${table_name} 
         ORDER BY created_at DESC 
         LIMIT 1
@@ -98,18 +99,20 @@ const getTrainingData = async () => {
   return trainingData;
 };
 
-export const market_details_ai = async (req, res) => {
+export const stock_screener_ai = async (req, res) => {
+  let { userQuery, userid, remaining_limit, max_limit } = req.body;
+  const current_date = moment().tz("Asia/kolkata").format("YYYY-MM-DD");
+  const current_time = moment().tz("Asia/kolkata").format("HH:mm:ss");
   try {
-    let { userQuery } = req.body;
-
     if (!userQuery) {
       return res.status(400).json({
         status: 0,
         message: "Missing parameters",
-        data: { msg: "Missing parameters" },
+        data: { msg: "Missing parameters", max_limit, remaining_limit },
       });
     }
 
+    let query_status = "success";
     const contextualQuery = userQuery;
     const trainingData = await getTrainingData();
     const gemini_api_key =
@@ -181,6 +184,7 @@ Return JSON in this format:
       ?.trim();
 
     if (!cleanedResponse) {
+      query_status = "failed";
       throw new Error("Empty AI response");
     }
 
@@ -189,28 +193,44 @@ Return JSON in this format:
       parsedResponse = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error("JSON parse error:", parseError);
+      query_status = "failed";
       throw new Error("Invalid JSON response from AI");
     }
 
     let finalResponse = parsedResponse.explanation;
 
     if (!parsedResponse.sql && finalResponse) {
+      const history_record_data = {
+        user_id: userid,
+        bot_type: "stock screener",
+        user_query: userQuery,
+        status: query_status,
+        time: current_time,
+        created_at: current_date,
+      };
+      await db.chat_bot_history.create(history_record_data);
+
+      remaining_limit =
+        query_status === "success" ? remaining_limit - 1 : remaining_limit;
       return res.status(200).json({
         status: 1,
         message: "Success",
         data: {
           msg: finalResponse,
+          max_limit,
+          remaining_limit: remaining_limit - 1,
         },
       });
     }
 
     if (!parsedResponse.sql) {
+      query_status = "failed";
       throw new Error("No SQL query generated");
     }
 
     try {
       const [results] = await Promise.race([
-        db.query(parsedResponse.sql),
+        db.sequelize.query(parsedResponse.sql),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Database timeout")), 20000)
         ),
@@ -243,7 +263,7 @@ Example structure:
         const response2 = await Promise.race([
           model.invoke(prompt2),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("AI request timeout")), 20000)
+            setTimeout(() => reject(new Error("AI request timeout")), 100000)
           ),
         ]);
         const cleanedHTML = response2?.content
@@ -293,18 +313,34 @@ Generate a **complete HTML block** containing:
 
         finalResponse = cleanedHTML;
       } else {
+        query_status = "failed";
         finalResponse = `<p>I couldn't find any data. The symbol might not exist in our database or there might be no recent data available.</p>`;
       }
     } catch (queryError) {
+      query_status = "failed";
       console.error("Database query error:", queryError);
       finalResponse = `Unable to fetch data. Please try again`;
     }
 
+    const history_record_data = {
+      user_id: userid,
+      bot_type: "stock screener",
+      user_query: userQuery,
+      status: query_status,
+      time: current_time,
+      created_at: current_date,
+    };
+    await db.chat_bot_history.create(history_record_data);
+
+    remaining_limit =
+      query_status === "success" ? remaining_limit - 1 : remaining_limit;
     res.status(200).json({
       status: 1,
       message: "Success",
       data: {
         msg: finalResponse,
+        max_limit,
+        remaining_limit,
       },
     });
   } catch (error) {
@@ -314,11 +350,24 @@ Generate a **complete HTML block** containing:
       errorMsg =
         "The request is taking longer than expected. Please try with a simpler query.";
     }
+
+    const history_record_data = {
+      user_id: userid,
+      bot_type: "stock screener",
+      user_query: userQuery,
+      status: "failed",
+      time: current_time,
+      created_at: current_date,
+    };
+    await db.chat_bot_history.create(history_record_data);
+
     res.status(200).json({
       status: 0,
       message: "Processing error",
       data: {
         msg: errorMsg,
+        max_limit,
+        remaining_limit,
       },
     });
   }

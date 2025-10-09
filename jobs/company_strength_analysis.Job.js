@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { sequelize as db } from "../models/index.js";
+import db from "../models/index.js";
 import { company_strength_analysis_ai } from "../ai/company_strength_analysis.js";
 import moment from "moment";
 import long_term_stock_recommend_analysis from "../utils/long_term_stock_recommend_analysis.js";
@@ -9,7 +9,7 @@ const company_strength_analysis = async () => {
   try {
     const current_date = moment().tz("Asia/kolkata").format("YYYY-MM-DD");
     const current_time = moment().tz("Asia/kolkata").format("HH:mm:ss");
-    const symbol_name_data = await db.query(
+    const symbol_name_data = await db.sequelize.query(
       `
        SELECT eq.symbol_name
        FROM nse_eq_stock_data_daily eq
@@ -29,42 +29,42 @@ const company_strength_analysis = async () => {
     for (let i = 0; i < size; i++) {
       console.log(`==== Remaining ${size - i} symbols ====\n`);
       const symbol_name = symbol_name_arr[i];
-      const company_ratio_analysis_data = await db.query(
+      const company_ratio_analysis_data = await db.sequelize.query(
         `select * from nse_company_details ncd where symbol_name = '${symbol_name}'`,
         {
           type: db.Sequelize.QueryTypes.SELECT,
         }
       );
 
-      const company_historic_stock_data = await db.query(
+      const company_historic_stock_data = await db.sequelize.query(
         `select * from nse_eq_stock_historical_daily ncd where symbol_name = '${symbol_name}' order by created_at desc limit 5`,
         {
           type: db.Sequelize.QueryTypes.SELECT,
         }
       );
 
-      const company_peers_data = await db.query(
+      const company_peers_data = await db.sequelize.query(
         `select * from nse_company_peers ncd where parent_symbol_name = '${symbol_name}'`,
         {
           type: db.Sequelize.QueryTypes.SELECT,
         }
       );
 
-      const company_financials_data = await db.query(
+      const company_financials_data = await db.sequelize.query(
         `select * from nse_company_financials ncd where symbol_name = '${symbol_name}'`,
         {
           type: db.Sequelize.QueryTypes.SELECT,
         }
       );
 
-      const company_profile_data = await db.query(
+      const company_profile_data = await db.sequelize.query(
         `select * from nse_company_profile ncd where symbol_name = '${symbol_name}'`,
         {
           type: db.Sequelize.QueryTypes.SELECT,
         }
       );
 
-      const company_shareholding_data = await db.query(
+      const company_shareholding_data = await db.sequelize.query(
         `select * from nse_company_shareholding ncd where symbol_name = '${symbol_name}'`,
         {
           type: db.Sequelize.QueryTypes.SELECT,
@@ -100,7 +100,7 @@ const company_strength_analysis = async () => {
         " ------------------------------------------------------------------------------------------------------------------------------------------------"
       );
 
-      await db.query(
+      await db.sequelize.query(
         `UPDATE nse_company_details 
          SET strengths = ARRAY[:strengths]::text[],
              weakness = ARRAY[:weakness]::text[],    
@@ -125,7 +125,7 @@ const company_strength_analysis = async () => {
             current_date,
             current_time,
           },
-          type: db.QueryTypes.UPDATE,
+          type: db.Sequelize.QueryTypes.UPDATE,
         }
       );
 
