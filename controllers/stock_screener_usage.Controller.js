@@ -30,6 +30,7 @@ export const get_stock_screener_chatbot_usage = async (req, res) => {
       where: {
         user_id,
         bot_type: "stock screener",
+        status:'success',
         created_at: current_date,
       },
     });
