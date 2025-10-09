@@ -1,6 +1,7 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import dotenv from "dotenv";
-import { sequelize as db } from "../models/index.js";
+import db from "../models/index.js";
+import moment from "moment";
 import { getModelInstance } from "../utils/ai_models.js";
 dotenv.config();
 
@@ -61,7 +62,7 @@ const getTrainingData = async () => {
 
   for (const table_name of tables) {
     try {
-      const [columns] = await db.query(`
+      const [columns] = await db.sequelize.query(`
         SELECT column_name
         FROM information_schema.columns
         WHERE table_name = '${table_name}'
@@ -70,7 +71,7 @@ const getTrainingData = async () => {
 
       const columnNames = columns.map((col) => col.column_name);
 
-      const [sampleRows] = await db.query(`
+      const [sampleRows] = await db.sequelize.query(`
         SELECT * FROM ${table_name} 
         ORDER BY created_at DESC 
         LIMIT 1
@@ -97,24 +98,25 @@ const getTrainingData = async () => {
   return trainingData;
 };
 
-export const stock_details_ai = async (req, res) => {
+export const stock_analysis_ai = async (req, res) => {
+  let { userQuery, symbol, userid, remaining_limit, max_limit } = req.body;
+  const current_date = moment().tz("Asia/kolkata").format("YYYY-MM-DD");
+  const current_time = moment().tz("Asia/kolkata").format("HH:mm:ss");
   try {
-    let { userQuery, symbol } = req.body;
-
     if (!userQuery || !symbol) {
       return res.status(400).json({
         status: 0,
         message: "Missing parameters",
-        data: { msg: "Missing parameters" },
+        data: { msg: "Missing parameters", max_limit, remaining_limit},
       });
     }
 
+    let query_status = "success";
     const contextualQuery = userQuery.concat(` in the context of ${symbol}`);
     const trainingData = await getTrainingData();
     const gemini_api_key =
       gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
     const model = getModelInstance(gemini_api_key);
-
     const prompt = `
 You are a financial data assistant that generates PostgreSQL queries AND crafts natural, conversational explanations based on the query results.
 
@@ -179,27 +181,43 @@ Return JSON in this format:
       parsedResponse = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error("JSON parse error:", parseError);
+      query_status = "failed";
       throw new Error("Invalid JSON response from AI");
     }
 
     let finalResponse = parsedResponse.explanation;
 
     if (!parsedResponse.sql && finalResponse) {
+      const history_record_data = {
+        user_id: userid,
+        bot_type: "stock analysis",
+        user_query: `${userQuery}, in the context of ${symbol}`,
+        status: query_status,
+        time: current_time,
+        created_at: current_date,
+      };
+      await db.chat_bot_history.create(history_record_data);
+
+      remaining_limit =
+        query_status === "success" ? remaining_limit - 1 : remaining_limit;
       return res.status(200).json({
         status: 1,
         message: "Success",
         data: {
           msg: finalResponse,
+          max_limit,
+          remaining_limit,
         },
       });
     }
 
     if (!parsedResponse.sql) {
+      query_status = "failed";
       throw new Error("No SQL query generated");
     }
     try {
       const [results] = await Promise.race([
-        db.query(parsedResponse.sql),
+        db.sequelize.query(parsedResponse.sql),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Database timeout")), 5000)
         ),
@@ -211,23 +229,40 @@ Return JSON in this format:
           finalResponse = finalResponse.replace(`{{${key}}}`, result[key]);
         }
       } else {
+        query_status = "failed";
         finalResponse = `I couldn't find any data for ${symbol}. The symbol might not exist in our database or there might be no recent data available.`;
       }
     } catch (queryError) {
       console.error("Database query error:", queryError);
+      query_status = "failed";
       finalResponse = `Unable to fetch data for ${symbol}. Please try again or check if the symbol or query is valid.`;
     }
 
+    // store query history
+    const history_record_data = {
+      user_id: userid,
+      bot_type: "stock analysis",
+      user_query: `${userQuery}, in the context of ${symbol}`,
+      status: query_status,
+      time: current_time,
+      created_at: current_date,
+    };
+    await db.chat_bot_history.create(history_record_data);
+
+    remaining_limit =
+      query_status === "success" ? remaining_limit - 1 : remaining_limit;
     res.status(200).json({
       status: 1,
       message: "Success",
       data: {
         msg: finalResponse,
+        max_limit,
+        remaining_limit,
       },
     });
   } catch (error) {
     console.log(error);
-    
+
     let errorMsg =
       "I'm having trouble processing your request right now. Please try again.";
 
@@ -236,11 +271,23 @@ Return JSON in this format:
         "The request is taking longer than expected. Please try with a simpler query.";
     }
 
+    const history_record_data = {
+      user_id: userid,
+      bot_type: "stock analysis",
+      user_query: `${userQuery}, in the context of ${symbol}`,
+      status: "failed",
+      time: current_time,
+      created_at: current_date,
+    };
+    await db.chat_bot_history.create(history_record_data);
+
     res.status(200).json({
       status: 0,
       message: "Processing error",
       data: {
         msg: errorMsg,
+        max_limit,
+        remaining_limit,
       },
     });
   }

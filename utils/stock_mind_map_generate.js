@@ -1,8 +1,8 @@
-import { sequelize as db } from "../models/index.js";
+import db from "../models/index.js";
 
 export const stock_mind_map_generate = async (symbol_name) => {
   try {
-    let company_ratio_analysis_data = await db.query(
+    let company_ratio_analysis_data = await db.sequelize.query(
       `select company_name, url, bse_code, nse_code, market_cap, current_price,
           high, low, stock_p_e, book_value, dividend_yield_per, roce_per,
           roe_per, face_value,  opm_per, profit_after_tax, mar_cap, sales_qtr, 
@@ -17,7 +17,7 @@ export const stock_mind_map_generate = async (symbol_name) => {
       }
     );
 
-    let company_peers_data = await db.query(
+    let company_peers_data = await db.sequelize.query(
       ` select 
            symbol_name, company_name, cmp, p_e, mar_cap, 
            div_yld_per, np_qtr, qtr_profit_per, sales_qtr, 
@@ -30,7 +30,7 @@ export const stock_mind_map_generate = async (symbol_name) => {
       }
     );
 
-    let company_financials_data = await db.query(
+    let company_financials_data = await db.sequelize.query(
       `select 
           period, sales, expenses, profit_bf_tax, net_profit
          from nse_company_financials ncd
@@ -41,7 +41,7 @@ export const stock_mind_map_generate = async (symbol_name) => {
       }
     );
 
-    let company_profile_data = await db.query(
+    let company_profile_data = await db.sequelize.query(
       `select 
           listing_date, industry, sector, total_market_cap, pd_sector_ind, pd_sector_pe
          from nse_company_profile ncd 
@@ -52,7 +52,7 @@ export const stock_mind_map_generate = async (symbol_name) => {
       }
     );
 
-    let company_shareholding_data = await db.query(
+    let company_shareholding_data = await db.sequelize.query(
       `select 
           period, promoters_per, fii_per, dii_per, government_per, public_per 
         from nse_company_shareholding ncd
