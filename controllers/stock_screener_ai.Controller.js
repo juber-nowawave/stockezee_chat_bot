@@ -54,21 +54,21 @@ export const handle_stock_screener_query = async (req, res) => {
         created_at: current_date,
       },
     });
-
+    
+    const max_limit = 10;
     if (today_count >= 10) {
       return res.status(200).json({
-        status: 0,
-        message: "Today's limit exceeded!",
-        data: null,
+        status: 1,
+        message: "success",
+        data: { msg: "Today's limit exceeded!", remaining_limit:0, max_limit},
       });
     }
-    const max_limit = 10;
     req.body = { userQuery, userid, remaining_limit: max_limit - today_count, max_limit};
     await stock_screener_ai(req, res);
   } catch (error) {
     console.error("Query error:", error);
     return res.status(500).json({
-      status: 0,
+      status: 1,
       message: "Something went wrong",
       data: { msg: "Something went wrong" },
     });
