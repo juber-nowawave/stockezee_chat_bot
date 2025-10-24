@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import ai_query_routes from "./routers/ai_chat_bot.Route.js";
 import stock_mind_map_routes from "./routers/stock_mind_map.Route.js";
+import daily_market_report_routes from "./routers/daily_market_report.Route.js"
 // import connectDb from "./models/index.js";
 // import company_strength_analysis_cron from "./jobs/company_strength_analysis.Job.js"
 
@@ -20,6 +21,8 @@ app.use(cors(corsOptions));
 // Routes
 app.use("/ai/api/chat-bot", ai_query_routes);
 app.use("/ai/api/mind-map",stock_mind_map_routes);
+app.use("/ai/api/reports",daily_market_report_routes);
+
 // Cron Jobs
 // company_strength_analysis_cron();
 
