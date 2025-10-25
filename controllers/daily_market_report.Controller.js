@@ -1,4 +1,3 @@
-
 import axios from "axios";
 import puppeteer from "puppeteer";
 
@@ -55,6 +54,15 @@ const generate_data = async () => {
     );
     data["commodity_currency_data"] = com_cur.data;
 
+    // Fetch option chain data
+    const { data: oiRes } = await axios.get(
+      "https://webapi.niftytrader.in/webapi/Option/oi-time-range?symbol=nifty&start_time=09:10:00&end_time=12:33:00&expiry="
+    );
+    const option_chain_data = oiRes.resultData || oiRes.data || oiRes || [];
+    data["option_chain_data"] = option_chain_data;
+
+    console.log("-----00", option_chain_data);
+
     return data;
   } catch (error) {
     console.error("Error generating data:", error.message);
@@ -64,6 +72,10 @@ const generate_data = async () => {
 
 async function generate_pdf(req, res) {
   const dynamic_data = await generate_data();
+  if (!dynamic_data) {
+    return res.status(500).json({ error: "Failed to generate data" });
+  }
+
   const prepare_sector_data = (sectors) => {
     const type1 = sectors
       .filter((s) => s.type === 1)
@@ -77,12 +89,32 @@ async function generate_pdf(req, res) {
     };
   };
 
-  const sector_chart_data = prepare_sector_data(dynamic_data.sector_list_data);
+  const sector_chart_data = prepare_sector_data(
+    dynamic_data.sector_list_data || []
+  );
 
-  const positive_sectors = dynamic_data.sector_list_data
+  // Prepare OI chart data
+  const option_chain = (dynamic_data.option_chain_data || []).sort(
+    (a, b) => a.strike_price - b.strike_price
+  );
+  const spot = option_chain[0]?.index_close || 25797.5;
+  const relevant_strikes = option_chain.filter(
+    (d) => d.strike_price >= spot - 1000 && d.strike_price <= spot + 1000
+  );
+  const oi_labels = relevant_strikes.map((d) => d.strike_price.toFixed(0));
+  const oi_calls = relevant_strikes.map(
+    (d) => (d.calls_oi_value || 0) / 10000000
+  );
+  const oi_puts = relevant_strikes.map(
+    (d) => (d.puts_oi_value || 0) / 10000000
+  );
+  const total_calls_oi = oi_calls.reduce((sum, val) => sum + val, 0);
+  const total_puts_oi = oi_puts.reduce((sum, val) => sum + val, 0);
+
+  const positive_sectors = (dynamic_data.sector_list_data || [])
     .filter((s) => s.type === 1 && s.change_per > 0)
     .sort((a, b) => b.change_per - a.change_per);
-  const negative_sectors = dynamic_data.sector_list_data
+  const negative_sectors = (dynamic_data.sector_list_data || [])
     .filter((s) => s.type === 1 && s.change_per < 0)
     .sort((a, b) => a.change_per - b.change_per);
   const leading_positive_sector =
@@ -90,7 +122,7 @@ async function generate_pdf(req, res) {
   const leading_negative_sector =
     negative_sectors.length > 0 ? negative_sectors[0].sector : "NIFTY IT";
 
-  // top   
+  // top
   const top_gainers_html = (sector_data, sector_name) => {
     const top_html = sector_data
       .map(
@@ -138,7 +170,7 @@ async function generate_pdf(req, res) {
   };
 
   // Weekly top sectors (top 5 type 1 by change_per)
-  const weekly_top_sectors = dynamic_data.sector_list_data
+  const weekly_top_sectors = (dynamic_data.sector_list_data || [])
     .filter((s) => s.type === 1)
     .sort((a, b) => b.change_per - a.change_per)
     .slice(0, 5);
@@ -157,15 +189,16 @@ async function generate_pdf(req, res) {
     .join("");
 
   // Global markets (filter and format)
-  const global_markets = dynamic_data.global_market_data.filter((item) =>
-    [
-      "DOW JONES",
-      "NASDAQ FUTURES",
-      "S&P 500 FUTURES",
-      "HANG SENG",
-      "FTSE 100",
-      "NIKKEI 225",
-    ].includes(item.symbol_name)
+  const global_markets = (dynamic_data.global_market_data || []).filter(
+    (item) =>
+      [
+        "DOW JONES",
+        "NASDAQ FUTURES",
+        "S&P 500 FUTURES",
+        "HANG SENG",
+        "FTSE 100",
+        "NIKKEI 225",
+      ].includes(item.symbol_name)
   );
   const global_html = global_markets
     .map((item) => {
@@ -185,7 +218,7 @@ async function generate_pdf(req, res) {
     .join("");
 
   // Indian markets (from sector_list_data, e.g., Bank Nifty, etc.)
-  const indian_markets = dynamic_data.sector_list_data.filter(
+  const indian_markets = (dynamic_data.sector_list_data || []).filter(
     (s) =>
       s.sector.includes("NIFTY") &&
       (s.sector.includes("BANK") || s.sector.includes("REALTY"))
@@ -207,10 +240,9 @@ async function generate_pdf(req, res) {
     .join("");
 
   // Commodities (Gold and sample for Silver/Crude)
-  const gold = dynamic_data.commodity_currency_data.commodities.find(
-    (c) => c.symbol_name === "GOLD"
-  );
-  const silver_crude = dynamic_data.commodity_currency_data.commodities.find(
+  const commodities = dynamic_data.commodity_currency_data?.commodities || [];
+  const gold = commodities.find((c) => c.symbol_name === "GOLD");
+  const silver_crude = commodities.find(
     (c) => c.symbol_name === "CRUDE OIL"
   ) || { last_trade_price: 0, change_percent: 0 };
   const commodity_html = `
@@ -277,6 +309,12 @@ async function generate_pdf(req, res) {
           font-size: 18px; 
           margin-bottom: 20px; 
           color: #ccc;
+        }
+        .oi-subtitle {
+          text-align: center;
+          font-size: 14px;
+          color: #ccc;
+          margin: 10px 0;
         }
         .sector-name{
           text-align:center;
@@ -384,14 +422,24 @@ async function generate_pdf(req, res) {
       <div class="chart-container">
         <canvas id="sectorChart"></canvas>
       </div>
-      </br>
+
+      <div class="subtitle">OI in Value Terms (LTP * OI)</div>
+      <div class="oi-subtitle">Calls OI ${total_calls_oi.toFixed(
+        1
+      )}Cr | Puts OI ${total_puts_oi.toFixed(1)}Cr</div>
+      <div class="chart-container">
+        <canvas id="oiChart"></canvas>
+      </div>
+      
       <div class="top-gainer-stocks-section">
         <div style="background-color: #222; ">
           <h3 style="text-align:center;" >Top 3 stocks from the leading sectoral indices closed positive change</h3> 
         </div>
         <div style="display: flex; gap:8px;">
-          ${dynamic_data.top_two_gainer_sector_wise
-            .map((sector) => top_gainers_html(sector, sector[0].sector))
+          ${(dynamic_data.top_two_gainer_sector_wise || [])
+            .map((sector) =>
+              top_gainers_html(sector, sector[0]?.sector || "Unknown")
+            )
             .join("")}
         </div>
       </div>
@@ -402,8 +450,10 @@ async function generate_pdf(req, res) {
           <h3 style="text-align:center;" >Top 3 stocks from the leading sectoral indices closed negative change</h3> 
         </div>
         <div style="display: flex; gap:8px;">
-          ${dynamic_data.top_two_loser_sector_wise
-            .map((sector) => top_losers_html(sector, sector[0].sector))
+          ${(dynamic_data.top_two_loser_sector_wise || [])
+            .map((sector) =>
+              top_losers_html(sector, sector[0]?.sector || "Unknown")
+            )
             .join("")}
         </div>
       </div>
@@ -499,6 +549,51 @@ async function generate_pdf(req, res) {
             }
           }
         });
+
+        const oi_ctx = document.getElementById('oiChart').getContext('2d');
+        new Chart(oi_ctx, {
+          type: 'bar',
+          data: {
+            labels: ${JSON.stringify(oi_labels)},
+            datasets: [{
+              label: 'Calls OI',
+              data: ${JSON.stringify(oi_calls)},
+              backgroundColor: '#007bff',
+              borderWidth: 0
+            }, {
+              label: 'Puts OI',
+              data: ${JSON.stringify(oi_puts)},
+              backgroundColor: '#ff69b4',
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                ticks: { color: '#fff', maxTicksLimit: 15 },
+                grid: { color: '#333' }
+              },
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#fff' },
+                grid: { color: '#333' },
+                title: {
+                  display: true,
+                  text: 'OI Value (Cr.)',
+                  color: '#fff'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: true,
+                labels: { color: '#fff' }
+              }
+            }
+          }
+        });
       </script>
     </body>
     </html>
@@ -508,6 +603,7 @@ async function generate_pdf(req, res) {
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
   await page.setContent(html_template, { waitUntil: "networkidle0" });
+  // await page.waitForTimeout(3000); // Add delay to ensure charts render
 
   // Generate PDF
   const pdf_buffer = await page.pdf({
