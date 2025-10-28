@@ -16,7 +16,7 @@ var corsOptions = {
     "https://www.stockezee.com",
     "http://localhost:4000",
     "http://localhost:3005",
-    "https://wbjhhvg7-3005.inc1.devtunnels.ms/"
+    "https://wbjhhvg7-3005.inc1.devtunnels.ms"
   ],
 };
 
