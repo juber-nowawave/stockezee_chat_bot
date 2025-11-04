@@ -107,15 +107,15 @@ export const stock_analysis_ai = async (req, res) => {
       return res.status(400).json({
         status: 0,
         message: "Missing parameters",
-        data: { msg: "Missing parameters", max_limit, remaining_limit},
+        data: { msg: "Missing parameters", max_limit, remaining_limit },
       });
     }
 
     let query_status = "success";
     const contextualQuery = userQuery.concat(` in the context of ${symbol}`);
     const trainingData = await getTrainingData();
-    const gemini_api_key =
-      gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
+    const gemini_api_key = process.env.MAIN_GEMINI_KEY;
+
     const model = getModelInstance(gemini_api_key);
     const prompt = `
 You are a financial data assistant that generates PostgreSQL queries AND crafts natural, conversational explanations based on the query results.

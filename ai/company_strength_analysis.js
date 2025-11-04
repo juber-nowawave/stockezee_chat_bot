@@ -21,10 +21,8 @@ const gemini_keys = [
 
 export const company_strength_analysis_ai = async (data, symbol) => {
   try {
-    const gemini_api_key =
-      gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
+    const gemini_api_key = process.env.MAIN_GEMINI_KEY;
     const model = getModelInstance(gemini_api_key);
-
     const prompt = `
 You are a financial data assistant. Based on the given structured company data, analyze it and generate a natural, conversational SWOT summary of the company.  
 

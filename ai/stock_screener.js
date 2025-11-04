@@ -115,8 +115,7 @@ export const stock_screener_ai = async (req, res) => {
     let query_status = "success";
     const contextualQuery = userQuery;
     const trainingData = await getTrainingData();
-    const gemini_api_key =
-      gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
+    const gemini_api_key = process.env.MAIN_GEMINI_KEY;
     const model = getModelInstance(gemini_api_key);
 
     const prompt = `

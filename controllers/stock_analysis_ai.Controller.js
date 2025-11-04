@@ -41,7 +41,6 @@ export const handle_stock_analysis_query = async (req, res) => {
         data: { msg: "Missing parameters" },
       });
     }
-
     const current_date = moment().tz("Asia/kolkata").format("YYYY-MM-DD");
     const userid = is_verified.id;
     const today_count = await db.chat_bot_history.count({
@@ -54,13 +53,14 @@ export const handle_stock_analysis_query = async (req, res) => {
     });
 
     const max_limit = 10;
-    if (today_count >= 10) {
+    if (today_count >= max_limit) {
       return res.status(200).json({
         status: 1,
         message: "success",
         data: { msg: "Today's limit exceeded!", remaining_limit:0, max_limit},
       });
     }
+    
     req.body = { userQuery, symbol, userid, remaining_limit: max_limit - today_count, max_limit};
     await stock_analysis_ai(req, res);
   } catch (error) {

@@ -105,7 +105,6 @@ const parse_filter = (query) => {
     throw new Error("Invalid query: Must be a non-empty string");
   }
 
-  const tokens = [];
   const lowerQuery = query.toLowerCase();
 
   const parts = [];
@@ -122,106 +121,153 @@ const parse_filter = (query) => {
   }
 
   parts.push(query.substring(currentPos).trim());
-
+  
   const clauses = parts.filter(Boolean);
-
+  
   if (clauses.length === 0) {
     throw new Error("No valid conditions found");
   }
 
+  const parseSide = (str) => {
+    const trimmed = str.trim();
+    if (!trimmed) {
+      throw new Error("Empty expression");
+    }
+
+    // Try binary: field arith value (where value is number or number% or field)
+    const binaryMatch = trimmed.match(/^([a-z_]+)\s*([+*/-])\s*(\S+)$/i);
+    if (binaryMatch) {
+      const [, rawF, aop, rawVal] = binaryMatch;
+      const field = rawF.trim().toLowerCase();
+      if (!VALID_FIELDS.includes(field)) {
+        throw new Error(`Invalid field "${rawF}" in expression: "${trimmed}"`);
+      }
+      const cleanValStr = rawVal.replace(/%$/, '').trim();
+
+      let right;
+      if (VALID_FIELDS.includes(cleanValStr)) {
+        right = { type: 'field', name: cleanValStr };
+      } else {
+        const value = parseFloat(cleanValStr);
+        if (isNaN(value)) {
+          throw new Error(`Invalid numeric value "${rawVal}" in expression: "${trimmed}"`);
+        }
+        right = { type: 'number', value };
+      }
+
+      return {
+        type: 'binary',
+        left: { type: 'field', name: field },
+        operator: aop,
+        right
+      };
+    }
+
+    // Try number (with optional %)
+    const clean = trimmed.replace(/%$/, '').trim();
+    const value = parseFloat(clean);
+    if (!isNaN(value)) {
+      return { type: 'number', value };
+    }
+
+    // Try field
+    if (/^[a-z_]+$/i.test(trimmed)) {
+      const field = trimmed.toLowerCase().trim();
+      if (VALID_FIELDS.includes(field)) {
+        return { type: 'field', name: field };
+      } else {
+        throw new Error(`Invalid field "${trimmed}"`);
+      }
+    }
+
+    // Invalid
+    throw new Error(`Invalid expression "${trimmed}". Expected: field (e.g. high), number (e.g. 50 or 50%), or field +|-|*|/ number/field (e.g. high + 20 or high + low)`);
+  };
+
   const conditions = [];
-  console.log('-----',parts);
-  
   for (let i = 0; i < clauses.length; i++) {
-    const clause = clauses[i].toLowerCase();
+    const lowerClause = clauses[i].toLowerCase();
+    const clauseMatch = lowerClause.match(/^(.+?)\s*(>=|<=|!=|>|<|=)\s*(.+)$/i);
 
-    const match = clause.match(/^([a-z_]+)\s*(>=|<=|!=|>|<|=)\s*(.+)$/i);
-
-    if (!match) {
+    if (!clauseMatch) {
       throw new Error(
-        `Invalid clause format: "${clause}". Expected format: field operator value (e.g., market_cap > 500 or high > low)`
+        `Invalid clause format: "${clauses[i]}". Expected: left operator right, where left/right are field, number, or field +|-|*|/ number/field (e.g., market_cap > 500 or high > low or high + 20 > low)`
       );
     }
-    console.log(match);
-    
-    const [, rawField, operator, rawValue] = match;
-    const field = rawField.trim();
-    const valueStr = rawValue.trim();
 
-    if (!field) {
-      throw new Error(`Empty field in clause: "${clause}"`);
-    }
-
-    if (!VALID_FIELDS.includes(field)) {
-      throw new Error(
-        `Invalid field "${field}". Allowed fields: ${VALID_FIELDS.join(", ")}`
-      );
-    }
+    const [, lowerLeft, operator, lowerRight] = clauseMatch;
 
     if (!VALID_OPERATORS.includes(operator)) {
       throw new Error(
-        `Invalid operator "${operator}" in clause: "${clause}". Allowed operators: ${VALID_OPERATORS.join(
+        `Invalid operator "${operator}" in clause: "${clauses[i]}". Allowed operators: ${VALID_OPERATORS.join(
           ", "
         )}`
       );
     }
 
-    const cleanValueStr = valueStr.replace(/%$/, "").trim();
+    let left, right;
+    try {
+      left = parseSide(lowerLeft);
+      right = parseSide(lowerRight);
+   
+    } catch (e) {
+      throw new Error(`In clause "${clauses[i]}": ${e.message}`);
+    }
 
     const logicalOperator = i === 0 ? null : logicalOps[i - 1];
 
-    if (VALID_FIELDS.includes(cleanValueStr)) {
-      conditions.push({
-        field,
-        operator,
-        compareField: cleanValueStr,
-        isFieldComparison: true,
-        logicalOperator,
-      });
-    } else {
-      const value = parseFloat(cleanValueStr);
-
-      if (isNaN(value)) {
-        throw new Error(
-          `Invalid value "${valueStr}" in clause: "${clause}". Value must be either a number or a valid field name.`
-        );
-      }
-
-      conditions.push({
-        field,
-        operator,
-        value,
-        isFieldComparison: false,
-        logicalOperator,
-      });
-    }
+    conditions.push({
+      left,
+      operator,
+      right,
+      logicalOperator,
+    });
   }
 
   return conditions;
 };
 
-const evaluate_condition = (stock, condition) => {
-  const { field, operator, isFieldComparison } = condition;
-  const leftValue = parseFloat(stock[field]);
+const evaluate_expression = (stock, expr) => {
+  switch (expr.type) {
+    case 'field': {
+      const val = parseFloat(stock[expr.name]);
+      return isNaN(val) ? NaN : val;
+    }
+    case 'number':
+      return expr.value;
+    case 'binary': {
+      const leftVal = evaluate_expression(stock, expr.left);
+      const rightVal = evaluate_expression(stock, expr.right);
+      if (isNaN(leftVal) || isNaN(rightVal)) {
+        return NaN;
+      }
+      switch (expr.operator) {
+        case '+':
+          return leftVal + rightVal;
+        case '-':
+          return leftVal - rightVal;
+        case '*':
+          return leftVal * rightVal;
+        case '/':
+          return rightVal === 0 ? NaN : leftVal / rightVal;
+        default:
+          return NaN;
+      }
+    }
+    default:
+      return NaN;
+  }
+};
 
-  if (leftValue === null || leftValue === undefined || isNaN(leftValue)) {
+const evaluate_condition = (stock, condition) => {
+  const leftValue = evaluate_expression(stock, condition.left);
+  const rightValue = evaluate_expression(stock, condition.right);
+
+  if (isNaN(leftValue) || isNaN(rightValue)) {
     return false;
   }
 
-  let rightValue;
-
-  if (isFieldComparison) {
-    const compareField = condition.compareField;
-    rightValue = parseFloat(stock[compareField]);
-
-    if (rightValue === null || rightValue === undefined || isNaN(rightValue)) {
-      return false;
-    }
-  } else {
-    rightValue = parseFloat(condition.value);
-  }
-
-  switch (operator) {
+  switch (condition.operator) {
     case ">":
       return leftValue > rightValue;
     case "<":
@@ -273,14 +319,14 @@ export const query_resolve = async (req, res) => {
 
     const all_stocks = await get_all_stocks();
     const conditions = parse_filter(user_query);
+    
     const filtered_stocks = apply_filters(all_stocks, conditions);
+
     return res.status(200).json({
       status: 1,
       message: "Query executed successfully",
       data: {
-        query: user_query,
-        conditions: conditions,
-        total_stocks: all_stocks.length,
+        msg: filtered_stocks.length ? `Total ${filtered_stocks.length} records found!` : `No records found!`,
         filtered_count: filtered_stocks.length,
         stocks: filtered_stocks,
       },
@@ -302,7 +348,6 @@ export const query_resolve = async (req, res) => {
       status: 0,
       message: "Internal server error. Please try again later.",
       data: null,
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
