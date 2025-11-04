@@ -10,17 +10,27 @@ const company_strength_analysis = async () => {
     const current_date = moment().tz("Asia/kolkata").format("YYYY-MM-DD");
     const current_time = moment().tz("Asia/kolkata").format("HH:mm:ss");
     const symbol_name_data = await db.sequelize.query(
-      `
-       SELECT eq.symbol_name
-       FROM nse_eq_stock_data_daily eq
-       INNER JOIN nse_stock_list ns ON eq.symbol_name = ns.symbol_name
-       WHERE ns.is_active
-        AND eq.symbol_name NOT IN (
-         SELECT symbol_name
-         FROM nse_company_details
-         WHERE DATE(created_at) IN (CURRENT_DATE)
-        );
-    `,
+   `
+    WITH latest_trade_date AS (
+      SELECT MAX(created_at) as last_trade_date from nse_eq_stock_data_daily
+    )  
+    SELECT eq.symbol_name
+     FROM nse_eq_stock_data_daily eq
+     inner join nse_company_profile ns  on eq.symbol_name = ns.symbol_name
+     inner join nse_company_details nc  on eq.symbol_name = nc.symbol_name
+     CROSS JOIN latest_trade_date
+     WHERE eq.created_at = latest_trade_date.last_trade_date 
+     AND eq.symbol_name NOT LIKE '%NIFTY%'
+     AND eq.symbol_name NOT LIKE '%SENSEX%'
+     AND eq.symbol_name NOT LIKE '%ETF%'
+     AND eq.symbol_name NOT LIKE '%INDIA VIX%'
+     AND eq.symbol_name NOT LIKE '%HANGSENG%'
+     AND eq.symbol_name NOT IN (
+      SELECT symbol_name
+      FROM nse_company_details
+      WHERE DATE(created_at) IN (CURRENT_DATE)
+    );
+   `,
       { type: db.Sequelize.QueryTypes.SELECT }
     );
 
