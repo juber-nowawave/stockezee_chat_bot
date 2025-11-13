@@ -1,0 +1,8 @@
+node_modules/
+# Environment files
+.env
+.env.*
+*.env
+echo ".env" >> .gitignore
+echo "*.env" >> .gitignore
+echo ".env.*" >> .gitignore
