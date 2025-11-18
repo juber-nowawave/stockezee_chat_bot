@@ -130,34 +130,30 @@ const VALID_FIELDS = [
 const VALID_OPERATORS = [">", "<", "=", ">=", "<=", "!="];
 
 const get_stocks_by_query = async (selectFields = null, whereClause = null) => {
-  // if (selectFields && selectFields.length > 0) {
-  //   sql += `, ${selectFields.join(", ")}`;
-  // } else {
-  //   // Fallback to all fields if none specified
-  //   // Add all other fields...
-  // }
-
-  let sql = `SELECT symbol_name, market_cap, current_price, high, low, stock_p_e, book_value, dividend_yield_per,
-   roce_per, roe_per, face_value, opm_per, qtr_sales_var_per, price_to_earning, qtr_profit_var_per, price_to_book_value,
-   return_on_equity_per, debt_to_equity, return_on_assets_per avg_trading_vol_10d, price_ret_daily_13w, price_ret_daily_26w,
-   adre_turn_std_3m, avg_trading_vol_3m, high_52w, low_52w, price_ret_daily_52w, price_ret_daily_5d, beta, book_val_share_qtr,
-   book_val_growth_5y, capex_cagr_5y, cash_flow_share_ann, cash_flow_share_qtr, cash_share_ann, cash_share_qtr,
-   div_growth_rate_5y, div_indicated_ann, div_share_ann, div_share_ttm, div_yield_ind_ann, ebitd_share_ann, ebitd_share_ttm,
-   ebitda_cagr_5y, ebitda_int_cagr_5y, ent_value, eps_ann, eps_basic_excl_ext_ann, eps_basic_excl_ext_ttm, eps_excl_ext_ann, 
-   eps_excl_ext_ttm, eps_growth_3y, eps_growth_5y, eps_growth_qtr_yoy, eps_growth_ttm_yoy, eps_incl_ext_ann, eps_incl_ext_ttm, 
-   eps_norm_ann, ev_ebitda_ttm, focf_cagr_5y, fwd_pe, long_debt_eq_ann, long_debt_eq_qtr, price_ret_daily_mtd, net_inc_emp_ann, 
-   net_inc_emp_ttm, net_marg_growth_5y, net_prof_marg_5y, net_prof_marg_ann, net_prof_marg_ttm, op_marg_5y, op_marg_ann, 
-   op_marg_ttm, payout_ratio_ann, payout_ratio_ttm, pb_ann, pb_qtr, pcf_share_ann, pcf_share_ttm, pe_ann, pe_basic_excl_ext_ttm, 
-   pe_excl_ext_ann, pe_excl_ext_ttm, pe_incl_ext_ttm, pe_norm_ann, peg_ttm, pfcf_share_ann, pfcf_share_ttm, pretax_marg_5y, 
-   pretax_marg_ann, pretax_marg_ttm, price_rel_sp500_13w, price_rel_sp500_26w, price_rel_sp500_4w, price_rel_sp500_52w, 
-   price_rel_sp500_ytd, ps_ann, ps_ttm, ptbv_ann, ptbv_qtr, rev_emp_ann, rev_growth_3y, rev_growth_5y, rev_growth_qtr_yoy, 
-   rev_growth_ttm_yoy, rev_share_ann, rev_share_ttm, rev_share_growth_5y, roa_5y, roa_rfy, roe_5y, roe_rfy, roi_5y, roi_ann, roi_ttm, 
-   tang_book_val_share_ann, tang_book_val_share_qtr, tbv_cagr_5y, total_debt_eq_qtr, price_ret_daily_ytd, ev_fcf_ann, ev_fcf_ttm
-   FROM nse_company_details`;
-
-  //    let sql = `SELECT *
+  // let sql = `SELECT symbol_name, market_cap, current_price, high, low, stock_p_e, book_value, dividend_yield_per,
+  //  roce_per, roe_per, face_value, opm_per, qtr_sales_var_per, price_to_earning, qtr_profit_var_per, price_to_book_value,
+  //  return_on_equity_per, debt_to_equity, return_on_assets_per, avg_trading_vol_10d, price_ret_daily_13w, price_ret_daily_26w,
+  //  adre_turn_std_3m, avg_trading_vol_3m, high_52w, low_52w, price_ret_daily_52w, price_ret_daily_5d, beta, book_val_share_qtr,
+  //  book_val_growth_5y, capex_cagr_5y, cash_flow_share_ann, cash_flow_share_qtr, cash_share_ann, cash_share_qtr,
+  //  div_growth_rate_5y, div_indicated_ann, div_share_ann, div_share_ttm, div_yield_ind_ann, ebitd_share_ann, ebitd_share_ttm,
+  //  ebitda_cagr_5y, ebitda_int_cagr_5y, ent_value, eps_ann, eps_basic_excl_ext_ann, eps_basic_excl_ext_ttm, eps_excl_ext_ann,
+  //  eps_excl_ext_ttm, eps_growth_3y, eps_growth_5y, eps_growth_qtr_yoy, eps_growth_ttm_yoy, eps_incl_ext_ann, eps_incl_ext_ttm,
+  //  eps_norm_ann, ev_ebitda_ttm, focf_cagr_5y, fwd_pe, long_debt_eq_ann, long_debt_eq_qtr, price_ret_daily_mtd, net_inc_emp_ann,
+  //  net_inc_emp_ttm, net_marg_growth_5y, net_prof_marg_5y, net_prof_marg_ann, net_prof_marg_ttm, op_marg_5y, op_marg_ann,
+  //  op_marg_ttm, payout_ratio_ann, payout_ratio_ttm, pb_ann, pb_qtr, pcf_share_ann, pcf_share_ttm, pe_ann, pe_basic_excl_ext_ttm,
+  //  pe_excl_ext_ann, pe_excl_ext_ttm, pe_incl_ext_ttm, pe_norm_ann, peg_ttm, pfcf_share_ann, pfcf_share_ttm, pretax_marg_5y,
+  //  pretax_marg_ann, pretax_marg_ttm, price_rel_sp500_13w, price_rel_sp500_26w, price_rel_sp500_4w, price_rel_sp500_52w,
+  //  price_rel_sp500_ytd, ps_ann, ps_ttm, ptbv_ann, ptbv_qtr, rev_emp_ann, rev_growth_3y, rev_growth_5y, rev_growth_qtr_yoy,
+  //  rev_growth_ttm_yoy, rev_share_ann, rev_share_ttm, rev_share_growth_5y, roa_5y, roa_rfy, roe_5y, roe_rfy, roi_5y, roi_ann, roi_ttm,
+  //  tang_book_val_share_ann, tang_book_val_share_qtr, tbv_cagr_5y, total_debt_eq_qtr, price_ret_daily_ytd, ev_fcf_ann, ev_fcf_ttm
   //  FROM nse_company_details`;
 
+  let sql = `
+    SELECT symbol_name, market_cap, current_price, high, low, stock_p_e, book_value, 
+     dividend_yield_per, roce_per, roe_per, face_value, net_prof_marg_ann
+    FROM nse_company_details
+  `;
+  
   if (whereClause) {
     sql += ` WHERE ${whereClause}`;
   }
@@ -237,7 +233,7 @@ const parse_filter = (query) => {
     }
 
     // Try binary: field arith value (where value is number or number% or field)
-    const binaryMatch = trimmed.match(/^([a-z_]+)\s*([+*/-])\s*(\S+)$/i);
+    const binaryMatch = trimmed.match(/^([a-z0-9_]+)\s*([+*/-])\s*(\S+)$/i);
     if (binaryMatch) {
       const [, rawF, aop, rawVal] = binaryMatch;
       const field = rawF.trim().toLowerCase();
@@ -275,15 +271,15 @@ const parse_filter = (query) => {
     }
 
     // Try field
-    if (/^[a-z_]+$/i.test(trimmed)) {
+    if (/^[a-z0-9_]+$/i.test(trimmed)) {
       const field = trimmed.toLowerCase().trim();
+
       if (VALID_FIELDS.includes(field)) {
         return { type: "field", name: field };
       } else {
         throw new Error(`Invalid field "${trimmed}"`);
       }
     }
-
     // Invalid
     throw new Error(
       `Invalid expression "${trimmed}". Expected: field (e.g. high), number (e.g. 50 or 50%), or field +|-|*|/ number/field (e.g. high + 20 or high + low)`
@@ -300,7 +296,7 @@ const parse_filter = (query) => {
         `Invalid clause format: "${clauses[i]}". Expected: left operator right, where left/right are field, number, or field +|-|*|/ number/field (e.g., market_cap > 500 or high > low or high + 20 > low)`
       );
     }
-   
+
     const [, lowerLeft, operator, lowerRight] = clauseMatch;
 
     if (!VALID_OPERATORS.includes(operator)) {
@@ -360,6 +356,12 @@ export const query_resolve = async (req, res) => {
       const logOp = conditions[i].logicalOperator === "AND" ? "AND" : "OR";
       whereClause += ` ${logOp} ${conditionStrs[i]}`;
     }
+
+    // Safe division wrapper (add this before executing)
+    whereClause = whereClause.replace(
+      /(\w+)\s*\/\s*(\w+)/g,
+      "(CASE WHEN $2 = 0 THEN NULL ELSE $1 / $2 END)"
+    ); // Or use NULLIF in SQL: NULLIF($2, 0)
 
     const filtered_stocks = await get_stocks_by_query(usedFields, whereClause);
 
@@ -426,7 +428,6 @@ export const get_all_fields = async (req, res) => {
       opm_per: "operating_margin_ttm",
       price_to_earning: "pe_ttm",
       price_to_book_value: "pb",
-      return_on_equity_per: "roe_ttm",
       debt_to_equity: "total_debt/total_equity_annual",
       return_on_assets_per: "roa_ttm",
       avg_trading_vol_10d: "10_day_average_trading_volume",
@@ -586,14 +587,14 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       pb: {
-        label: "P/B",
+        label: "Price to Book",
         unit: "x",
         description:
           "The current stock price divided by the book value per share.",
         type: "ratio",
       },
       "total_debt/total_equity_annual": {
-        label: "Debt/Equity (Ann)",
+        label: "Total Debt to Equity (Ann)",
         unit: "x",
         description: "The annual total debt divided by shareholders' equity.",
         type: "ratio",
@@ -697,28 +698,28 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       cash_flow_per_share_annual: {
-        label: "Cash Flow/Share (Ann)",
+        label: "Cash Flow per Share (Ann)",
         unit: "₹",
         description:
           "The annual operating cash flow divided by the number of shares outstanding.",
         type: "currency",
       },
       cash_flow_per_share_quarterly: {
-        label: "Cash Flow/Share (Qtr)",
+        label: "Cash Flow per Share (Qtr)",
         unit: "₹",
         description:
           "The quarterly operating cash flow divided by the number of shares outstanding.",
         type: "currency",
       },
       cash_per_share_per_share_annual: {
-        label: "Cash/Share (Ann)",
+        label: "Cash per Share (Ann)",
         unit: "₹",
         description:
           "The annual cash and equivalents divided by the number of shares outstanding.",
         type: "currency",
       },
       cash_per_share_per_share_quarterly: {
-        label: "Cash/Share (Qtr)",
+        label: "Cash per Share (Qtr)",
         unit: "₹",
         description:
           "The quarterly cash and equivalents divided by the number of shares outstanding.",
@@ -739,14 +740,14 @@ export const get_all_fields = async (req, res) => {
         type: "currency",
       },
       dividend_per_share_annual: {
-        label: "Div/Share (Ann)",
+        label: "Div per Share (Ann)",
         unit: "₹",
         description:
           "The total dividends paid per share over the annual period.",
         type: "currency",
       },
       dividend_per_share_ttm: {
-        label: "Div/Share (TTM)",
+        label: "Div per Share (TTM)",
         unit: "₹",
         description:
           "The total dividends paid per share over the trailing twelve months.",
@@ -760,14 +761,14 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       ebitd_per_share_annual: {
-        label: "EBITD/Share (Ann)",
+        label: "EBITD per Share (Ann)",
         unit: "₹",
         description:
           "The annual earnings before interest, taxes, and depreciation divided by shares outstanding.",
         type: "currency",
       },
       ebitd_per_share_ttm: {
-        label: "EBITD/Share (TTM)",
+        label: "EBITD per Share (TTM)",
         unit: "₹",
         description:
           "The trailing twelve months earnings before interest, taxes, and depreciation divided by shares outstanding.",
@@ -877,7 +878,7 @@ export const get_all_fields = async (req, res) => {
         type: "currency",
       },
       ev_ebitda_ttm: {
-        label: "EV/EBITDA (TTM)",
+        label: "EV to EBITDA (TTM)",
         unit: "x",
         description:
           "The enterprise value divided by the trailing twelve months EBITDA.",
@@ -898,14 +899,14 @@ export const get_all_fields = async (req, res) => {
         type: "ratio",
       },
       "long_term_debt/equity_annual": {
-        label: "LT Debt/Equity (Ann)",
+        label: "LT Debt to Equity (Ann)",
         unit: "x",
         description:
           "The annual long-term debt divided by shareholders' equity.",
         type: "ratio",
       },
       "long_term_debt/equity_quarterly": {
-        label: "LT Debt/Equity (Qtr)",
+        label: "LT Debt to Equity (Qtr)",
         unit: "x",
         description:
           "The quarterly long-term debt divided by shareholders' equity.",
@@ -919,14 +920,14 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       net_income_employee_annual: {
-        label: "Net Income/Emp (Ann)",
+        label: "Net Income per Emp (Ann)",
         unit: "₹ Cr",
         description:
           "The annual net income divided by the number of employees.",
         type: "currency",
       },
       net_income_employee_ttm: {
-        label: "Net Income/Emp (TTM)",
+        label: "Net Income per Emp (TTM)",
         unit: "₹ Cr",
         description:
           "The trailing twelve months net income divided by the number of employees.",
@@ -986,28 +987,28 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       pb_annual: {
-        label: "P/B (Ann)",
+        label: "Price to Book (Ann)",
         unit: "x",
         description:
           "The stock price divided by the annual book value per share.",
         type: "ratio",
       },
       pb_quarterly: {
-        label: "P/B (Qtr)",
+        label: "Price to Book (Qtr)",
         unit: "x",
         description:
           "The stock price divided by the quarterly book value per share.",
         type: "ratio",
       },
       pcf_share_annual: {
-        label: "P/CF (Ann)",
+        label: "Price to CF (Ann)",
         unit: "x",
         description:
           "The stock price divided by the annual cash flow per share.",
         type: "ratio",
       },
       pcf_share_ttm: {
-        label: "P/CF (TTM)",
+        label: "Price to CF (TTM)",
         unit: "x",
         description:
           "The stock price divided by the trailing twelve months cash flow per share.",
@@ -1063,14 +1064,14 @@ export const get_all_fields = async (req, res) => {
         type: "ratio",
       },
       pfcf_share_annual: {
-        label: "P/FCF (Ann)",
+        label: "Price to FCF (Ann)",
         unit: "x",
         description:
           "The stock price divided by the annual free cash flow per share.",
         type: "ratio",
       },
       pfcf_share_ttm: {
-        label: "P/FCF (TTM)",
+        label: "Price to FCF (TTM)",
         unit: "x",
         description:
           "The stock price divided by the trailing twelve months free cash flow per share.",
@@ -1132,34 +1133,34 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       ps_annual: {
-        label: "P/S (Ann)",
+        label: "Price to Sales (Ann)",
         unit: "x",
         description: "The stock price divided by the annual sales per share.",
         type: "ratio",
       },
       ps_ttm: {
-        label: "P/S (TTM)",
+        label: "Price to Sales (TTM)",
         unit: "x",
         description:
           "The stock price divided by the trailing twelve months sales per share.",
         type: "ratio",
       },
       ptbv_annual: {
-        label: "P/TBV (Ann)",
+        label: "Price to TBV (Ann)",
         unit: "x",
         description:
           "The stock price divided by the annual tangible book value per share.",
         type: "ratio",
       },
       ptbv_quarterly: {
-        label: "P/TBV (Qtr)",
+        label: "Price to TBV (Qtr)",
         unit: "x",
         description:
           "The stock price divided by the quarterly tangible book value per share.",
         type: "ratio",
       },
       revenue_employee_annual: {
-        label: "Revenue/Emp (Ann)",
+        label: "Revenue per Emp (Ann)",
         unit: "₹ Cr",
         description: "The annual revenue divided by the number of employees.",
         type: "currency",
@@ -1190,21 +1191,21 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       revenue_per_share_annual: {
-        label: "Revenue/Share (Ann)",
+        label: "Revenue per Share (Ann)",
         unit: "₹",
         description:
           "The annual revenue divided by the number of shares outstanding.",
         type: "currency",
       },
       revenue_per_share_ttm: {
-        label: "Revenue/Share (TTM)",
+        label: "Revenue per Share (TTM)",
         unit: "₹",
         description:
           "The trailing twelve months revenue divided by the number of shares outstanding.",
         type: "currency",
       },
       revenue_share_growth_5y: {
-        label: "Revenue/Share Growth 5Y",
+        label: "Revenue Share Growth 5Y",
         unit: "%",
         description:
           "The 5-year compound annual growth rate of revenue per share.",
@@ -1255,14 +1256,14 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       tangible_book_value_per_share_annual: {
-        label: "Tang BV/Share (Ann)",
+        label: "Tang Book Value per Share (Ann)",
         unit: "₹",
         description:
           "The annual tangible book value divided by the number of shares outstanding.",
         type: "currency",
       },
       tangible_book_value_per_share_quarterly: {
-        label: "Tang BV/Share (Qtr)",
+        label: "Tang Book Value per Share (Qtr)",
         unit: "₹",
         description:
           "The quarterly tangible book value divided by the number of shares outstanding.",
@@ -1276,7 +1277,7 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       "total_debt/total_equity_quarterly": {
-        label: "Debt/Equity (Qtr)",
+        label: "Total Debt to Equity (Qtr)",
         unit: "x",
         description:
           "The quarterly total debt divided by shareholders' equity.",
@@ -1290,14 +1291,14 @@ export const get_all_fields = async (req, res) => {
         type: "percentage",
       },
       "current_ev/free_cash_flow_annual": {
-        label: "EV/FCF (Ann)",
+        label: "Enterprise Value to FCF (Ann)",
         unit: "x",
         description:
           "The enterprise value divided by the annual free cash flow.",
         type: "ratio",
       },
       "current_ev/free_cash_flow_ttm": {
-        label: "EV/FCF (TTM)",
+        label: "Enterprise Value to FCF (TTM)",
         unit: "x",
         description:
           "The enterprise value divided by the trailing twelve months free cash flow.",
@@ -1376,18 +1377,52 @@ export const get_all_fields = async (req, res) => {
         "time",
         "high_date_52w",
         "low_date_52w",
+        "bio",
+        "address",
+        "alias",
+        "city",
+        "country",
+        "currency",
+        "cusip",
+        "description",
+        "employee_total",
+        "estimate_currency",
+        "exchange",
+        "finnhub_industry",
+        "floating_share",
+        "fundamental_freq",
+        "ggroup",
+        "gind",
+        "gsector",
+        "gsubind",
+        "insider_ownership",
+        "institution_ownership",
+        "ipo",
+        "ir_url",
+        "isin",
+        "lei",
+        "logo",
+        "market_cap_currency",
+        "market_capitalization",
+        "marketcap_usd",
+        "naics",
+        "naics_national_industry",
+        "naics_sector",
+        "naics_subsector",
+        "name",
+        "phone",
+        "sedol",
+        "share_outstanding",
+        "state",
+        "ticker",
+        "us_share",
       ];
       if (excludeList.includes(column_name)) {
         continue;
       }
 
       const longName = fieldMap[column_name] || column_name;
-      const info = columns_info[longName] || {
-        label: column_name.replace(/_/g, " ").toUpperCase(),
-        unit: "",
-        description: "No description available.",
-        type: "number",
-      };
+      const info = columns_info[longName];
 
       data.push({
         key: column_name,

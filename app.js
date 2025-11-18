@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import compression from "compression";
 import ai_query_routes from "./routers/ai_chat_bot.Route.js";
 import stock_mind_map_routes from "./routers/stock_mind_map.Route.js";
 import daily_market_report_routes from "./routers/daily_market_report.Route.js";
@@ -23,6 +24,7 @@ var corsOptions = {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors(corsOptions));
+app.use(compression());
 
 // Routes
 app.use("/ai/api/chat-bot", ai_query_routes);
