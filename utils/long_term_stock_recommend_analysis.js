@@ -1,15 +1,24 @@
 function calculate_long_term_stock_recommendation(stockData) {
-    const {
-        company_ratio_analysis_data,
-        five_days_company_historic_stock_data,
-        company_quarterly_financials_data,
-        company_shareholding_data
-    } = stockData;
+    // Extract data from new JSON format
+    const currentData = stockData.ratio_analysis_data?.[0];
+    const recentBalanceSheet = stockData.balance_sheet_data?.[0]; // Most recent quarter
+    const recentCashFlow = stockData.cash_flow_data?.[0]; // Most recent quarter
+    const recentProfitLoss = stockData.profit_lose_data?.[0]; // Most recent quarter
     
-    // Extract current data
-    const currentData = company_ratio_analysis_data[0];
-    const recentQuarterly = company_quarterly_financials_data[company_quarterly_financials_data.length - 1];
-    const recentShareholding = company_shareholding_data[0]; // Most recent shareholding data
+    // Get previous quarter data for trend analysis
+    const prevBalanceSheet = stockData.balance_sheet_data?.[1];
+    const prevCashFlow = stockData.cash_flow_data?.[1];
+    const prevProfitLoss = stockData.profit_lose_data?.[1];
+    
+    if (!currentData) {
+        return {
+            criteria: [],
+            finalScore: 0,
+            recommendation: false,
+            riskLevel: 'High',
+            summary: 'Insufficient data for analysis'
+        };
+    }
     
     let totalScore = 0;
     let maxScore = 0;
@@ -21,218 +30,859 @@ function calculate_long_term_stock_recommendation(stockData) {
         summary: ''
     };
     
+    // Helper function to safely parse numbers
+    const parseNum = (value) => {
+        if (value === null || value === undefined || value === '') return null;
+        const num = parseFloat(value);
+        return isNaN(num) ? null : num;
+    };
+    
     // 1. VALUATION METRICS (25 points)
-    // P/E Ratio Analysis
-
-    const pe = parseFloat(currentData?.stock_p_e);
-    if (pe > 0 && pe <= 15) {
-        totalScore += 10;
-        analysis.criteria.push({ metric: 'P/E Ratio', value: pe, score: 10, status: 'Excellent', note: 'Undervalued stock' });
-    } else if (pe > 15 && pe <= 25) {
-        totalScore += 7;
-        analysis.criteria.push({ metric: 'P/E Ratio', value: pe, score: 7, status: 'Good', note: 'Fairly valued' });
-    } else if (pe > 25 && pe <= 35) {
-        totalScore += 4;
-        analysis.criteria.push({ metric: 'P/E Ratio', value: pe, score: 4, status: 'Average', note: 'Slightly overvalued' });
+    
+    // P/E Ratio Analysis (10 points)
+    const pe = parseNum(currentData.stock_p_e);
+    if (pe !== null && pe > 0) {
+        if (pe <= 15) {
+            totalScore += 10;
+            analysis.criteria.push({ 
+                metric: 'P/E Ratio', 
+                value: pe.toFixed(2), 
+                score: 10, 
+                status: 'Excellent', 
+                note: 'Significantly undervalued - Strong buy signal' 
+            });
+        } else if (pe <= 20) {
+            totalScore += 8;
+            analysis.criteria.push({ 
+                metric: 'P/E Ratio', 
+                value: pe.toFixed(2), 
+                score: 8, 
+                status: 'Very Good', 
+                note: 'Attractively valued for long-term investment' 
+            });
+        } else if (pe <= 25) {
+            totalScore += 6;
+            analysis.criteria.push({ 
+                metric: 'P/E Ratio', 
+                value: pe.toFixed(2), 
+                score: 6, 
+                status: 'Good', 
+                note: 'Fairly valued' 
+            });
+        } else if (pe <= 35) {
+            totalScore += 3;
+            analysis.criteria.push({ 
+                metric: 'P/E Ratio', 
+                value: pe.toFixed(2), 
+                score: 3, 
+                status: 'Average', 
+                note: 'Slightly overvalued - Requires growth to justify' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'P/E Ratio', 
+                value: pe.toFixed(2), 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Highly overvalued - High risk' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'P/E Ratio', value: pe, score: 0, status: 'Poor', note: 'Overvalued' });
+        analysis.criteria.push({ 
+            metric: 'P/E Ratio', 
+            value: pe || 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Negative or unavailable earnings' 
+        });
     }
     maxScore += 10;
     
-    // Price to Book Value
-    const pbv = parseFloat(currentData?.price_to_book_value);
-    if (pbv > 0 && pbv <= 1.5) {
-        totalScore += 8;
-        analysis.criteria.push({ metric: 'P/B Ratio', value: pbv, score: 8, status: 'Excellent', note: 'Trading below book value' });
-    } else if (pbv > 1.5 && pbv <= 3) {
-        totalScore += 6;
-        analysis.criteria.push({ metric: 'P/B Ratio', value: pbv, score: 6, status: 'Good', note: 'Reasonable valuation' });
-    } else if (pbv > 3 && pbv <= 5) {
-        totalScore += 3;
-        analysis.criteria.push({ metric: 'P/B Ratio', value: pbv, score: 3, status: 'Average', note: 'Premium valuation' });
+    // Price to Book Value (8 points)
+    const pbv = parseNum(currentData.price_to_book_value);
+    if (pbv !== null && pbv > 0) {
+        if (pbv <= 1) {
+            totalScore += 8;
+            analysis.criteria.push({ 
+                metric: 'P/B Ratio', 
+                value: pbv.toFixed(2), 
+                score: 8, 
+                status: 'Excellent', 
+                note: 'Trading below book value - Hidden gem' 
+            });
+        } else if (pbv <= 1.5) {
+            totalScore += 7;
+            analysis.criteria.push({ 
+                metric: 'P/B Ratio', 
+                value: pbv.toFixed(2), 
+                score: 7, 
+                status: 'Very Good', 
+                note: 'Attractive valuation with safety margin' 
+            });
+        } else if (pbv <= 3) {
+            totalScore += 5;
+            analysis.criteria.push({ 
+                metric: 'P/B Ratio', 
+                value: pbv.toFixed(2), 
+                score: 5, 
+                status: 'Good', 
+                note: 'Reasonable valuation' 
+            });
+        } else if (pbv <= 5) {
+            totalScore += 2;
+            analysis.criteria.push({ 
+                metric: 'P/B Ratio', 
+                value: pbv.toFixed(2), 
+                score: 2, 
+                status: 'Average', 
+                note: 'Premium valuation - Growth must sustain' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'P/B Ratio', 
+                value: pbv.toFixed(2), 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Extremely overvalued relative to assets' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'P/B Ratio', value: pbv, score: 0, status: 'Poor', note: 'Highly overvalued' });
+        analysis.criteria.push({ 
+            metric: 'P/B Ratio', 
+            value: pbv || 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Book value data unavailable' 
+        });
     }
     maxScore += 8;
     
-    // Dividend Yield
-    const divYield = parseFloat(currentData?.dividend_yield_per);
-    if (divYield >= 2) {
-        totalScore += 7;
-        analysis.criteria.push({ metric: 'Dividend Yield', value: `${divYield}%`, score: 7, status: 'Excellent', note: 'Good dividend income' });
-    } else if (divYield >= 1) {
-        totalScore += 5;
-        analysis.criteria.push({ metric: 'Dividend Yield', value: `${divYield}%`, score: 5, status: 'Good', note: 'Moderate dividend' });
-    } else if (divYield > 0) {
-        totalScore += 2;
-        analysis.criteria.push({ metric: 'Dividend Yield', value: `${divYield}%`, score: 2, status: 'Average', note: 'Low dividend' });
+    // Dividend Yield (7 points)
+    const divYield = parseNum(currentData.dividend_yield_per);
+    if (divYield !== null) {
+        if (divYield >= 3) {
+            totalScore += 7;
+            analysis.criteria.push({ 
+                metric: 'Dividend Yield', 
+                value: `${divYield.toFixed(2)}%`, 
+                score: 7, 
+                status: 'Excellent', 
+                note: 'High dividend income - Great for long-term' 
+            });
+        } else if (divYield >= 2) {
+            totalScore += 6;
+            analysis.criteria.push({ 
+                metric: 'Dividend Yield', 
+                value: `${divYield.toFixed(2)}%`, 
+                score: 6, 
+                status: 'Very Good', 
+                note: 'Solid dividend income' 
+            });
+        } else if (divYield >= 1) {
+            totalScore += 4;
+            analysis.criteria.push({ 
+                metric: 'Dividend Yield', 
+                value: `${divYield.toFixed(2)}%`, 
+                score: 4, 
+                status: 'Good', 
+                note: 'Moderate dividend' 
+            });
+        } else if (divYield > 0) {
+            totalScore += 2;
+            analysis.criteria.push({ 
+                metric: 'Dividend Yield', 
+                value: `${divYield.toFixed(2)}%`, 
+                score: 2, 
+                status: 'Average', 
+                note: 'Low dividend - Growth focused' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'Dividend Yield', 
+                value: `${divYield.toFixed(2)}%`, 
+                score: 0, 
+                status: 'Poor', 
+                note: 'No dividend payment' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'Dividend Yield', value: `${divYield}%`, score: 0, status: 'Poor', note: 'No dividend' });
+        analysis.criteria.push({ 
+            metric: 'Dividend Yield', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Dividend information unavailable' 
+        });
     }
     maxScore += 7;
     
     // 2. PROFITABILITY METRICS (25 points)
-    // Return on Equity (ROE)
-    const roe = parseFloat(currentData?.roe_per);
-    if (roe >= 20) {
-        totalScore += 10;
-        analysis.criteria.push({ metric: 'ROE', value: `${roe}%`, score: 10, status: 'Excellent', note: 'Superior profitability' });
-    } else if (roe >= 15) {
-        totalScore += 8;
-        analysis.criteria.push({ metric: 'ROE', value: `${roe}%`, score: 8, status: 'Good', note: 'Good profitability' });
-    } else if (roe >= 10) {
-        totalScore += 5;
-        analysis.criteria.push({ metric: 'ROE', value: `${roe}%`, score: 5, status: 'Average', note: 'Average profitability' });
+    
+    // Return on Equity (ROE) (10 points)
+    const roe = parseNum(currentData.return_on_equity_per);
+    if (roe !== null) {
+        if (roe >= 20) {
+            totalScore += 10;
+            analysis.criteria.push({ 
+                metric: 'ROE', 
+                value: `${roe.toFixed(2)}%`, 
+                score: 10, 
+                status: 'Excellent', 
+                note: 'Outstanding profitability - Best in class' 
+            });
+        } else if (roe >= 15) {
+            totalScore += 8;
+            analysis.criteria.push({ 
+                metric: 'ROE', 
+                value: `${roe.toFixed(2)}%`, 
+                score: 8, 
+                status: 'Very Good', 
+                note: 'Strong profitability' 
+            });
+        } else if (roe >= 12) {
+            totalScore += 6;
+            analysis.criteria.push({ 
+                metric: 'ROE', 
+                value: `${roe.toFixed(2)}%`, 
+                score: 6, 
+                status: 'Good', 
+                note: 'Good profitability' 
+            });
+        } else if (roe >= 8) {
+            totalScore += 3;
+            analysis.criteria.push({ 
+                metric: 'ROE', 
+                value: `${roe.toFixed(2)}%`, 
+                score: 3, 
+                status: 'Average', 
+                note: 'Average profitability - Room for improvement' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'ROE', 
+                value: `${roe.toFixed(2)}%`, 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Weak profitability - Red flag' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'ROE', value: `${roe}%`, score: 0, status: 'Poor', note: 'Low profitability' });
+        analysis.criteria.push({ 
+            metric: 'ROE', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'ROE data unavailable' 
+        });
     }
     maxScore += 10;
     
-    // Return on Capital Employed (ROCE)
-    const roce = parseFloat(currentData?.roce_per);
-    if (roce >= 20) {
-        totalScore += 8;
-        analysis.criteria.push({ metric: 'ROCE', value: `${roce}%`, score: 8, status: 'Excellent', note: 'Efficient capital usage' });
-    } else if (roce >= 15) {
-        totalScore += 6;
-        analysis.criteria.push({ metric: 'ROCE', value: `${roce}%`, score: 6, status: 'Good', note: 'Good capital efficiency' });
-    } else if (roce >= 10) {
-        totalScore += 4;
-        analysis.criteria.push({ metric: 'ROCE', value: `${roce}%`, score: 4, status: 'Average', note: 'Average capital usage' });
+    // Return on Capital Employed (ROCE) (8 points)
+    const roce = parseNum(currentData.roce_per);
+    if (roce !== null) {
+        if (roce >= 20) {
+            totalScore += 8;
+            analysis.criteria.push({ 
+                metric: 'ROCE', 
+                value: `${roce.toFixed(2)}%`, 
+                score: 8, 
+                status: 'Excellent', 
+                note: 'Highly efficient capital deployment' 
+            });
+        } else if (roce >= 15) {
+            totalScore += 6;
+            analysis.criteria.push({ 
+                metric: 'ROCE', 
+                value: `${roce.toFixed(2)}%`, 
+                score: 6, 
+                status: 'Very Good', 
+                note: 'Strong capital efficiency' 
+            });
+        } else if (roce >= 12) {
+            totalScore += 5;
+            analysis.criteria.push({ 
+                metric: 'ROCE', 
+                value: `${roce.toFixed(2)}%`, 
+                score: 5, 
+                status: 'Good', 
+                note: 'Good capital efficiency' 
+            });
+        } else if (roce >= 8) {
+            totalScore += 3;
+            analysis.criteria.push({ 
+                metric: 'ROCE', 
+                value: `${roce.toFixed(2)}%`, 
+                score: 3, 
+                status: 'Average', 
+                note: 'Average capital usage' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'ROCE', 
+                value: `${roce.toFixed(2)}%`, 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Inefficient capital usage' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'ROCE', value: `${roce}%`, score: 0, status: 'Poor', note: 'Inefficient capital usage' });
+        analysis.criteria.push({ 
+            metric: 'ROCE', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'ROCE data unavailable' 
+        });
     }
     maxScore += 8;
     
-    // Operating Profit Margin
-    const opm = parseFloat(currentData?.opm_per);
-    if (opm >= 20) {
-        totalScore += 7;
-        analysis.criteria.push({ metric: 'Operating Margin', value: `${opm}%`, score: 7, status: 'Excellent', note: 'High operational efficiency' });
-    } else if (opm >= 15) {
-        totalScore += 5;
-        analysis.criteria.push({ metric: 'Operating Margin', value: `${opm}%`, score: 5, status: 'Good', note: 'Good operational efficiency' });
-    } else if (opm >= 10) {
-        totalScore += 3;
-        analysis.criteria.push({ metric: 'Operating Margin', value: `${opm}%`, score: 3, status: 'Average', note: 'Average margins' });
+    // Operating Profit Margin (7 points)
+    const opm = parseNum(currentData.opm_per);
+    if (opm !== null) {
+        if (opm >= 20) {
+            totalScore += 7;
+            analysis.criteria.push({ 
+                metric: 'Operating Margin', 
+                value: `${opm.toFixed(2)}%`, 
+                score: 7, 
+                status: 'Excellent', 
+                note: 'Exceptional operational efficiency' 
+            });
+        } else if (opm >= 15) {
+            totalScore += 6;
+            analysis.criteria.push({ 
+                metric: 'Operating Margin', 
+                value: `${opm.toFixed(2)}%`, 
+                score: 6, 
+                status: 'Very Good', 
+                note: 'Strong operational efficiency' 
+            });
+        } else if (opm >= 10) {
+            totalScore += 4;
+            analysis.criteria.push({ 
+                metric: 'Operating Margin', 
+                value: `${opm.toFixed(2)}%`, 
+                score: 4, 
+                status: 'Good', 
+                note: 'Healthy margins' 
+            });
+        } else if (opm >= 5) {
+            totalScore += 2;
+            analysis.criteria.push({ 
+                metric: 'Operating Margin', 
+                value: `${opm.toFixed(2)}%`, 
+                score: 2, 
+                status: 'Average', 
+                note: 'Moderate margins - Cost pressure visible' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'Operating Margin', 
+                value: `${opm.toFixed(2)}%`, 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Low margins - Competitive pressure' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'Operating Margin', value: `${opm}%`, score: 0, status: 'Poor', note: 'Low margins' });
+        analysis.criteria.push({ 
+            metric: 'Operating Margin', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Operating margin data unavailable' 
+        });
     }
     maxScore += 7;
     
     // 3. FINANCIAL HEALTH (20 points)
-    // Debt to Equity Ratio
-    const debtEquity = parseFloat(currentData?.debt_to_equity);
-    if (debtEquity <= 0.3) {
-        totalScore += 10;
-        analysis.criteria.push({ metric: 'Debt/Equity', value: debtEquity, score: 10, status: 'Excellent', note: 'Very low debt' });
-    } else if (debtEquity <= 0.6) {
-        totalScore += 7;
-        analysis.criteria.push({ metric: 'Debt/Equity', value: debtEquity, score: 7, status: 'Good', note: 'Manageable debt' });
-    } else if (debtEquity <= 1.0) {
-        totalScore += 4;
-        analysis.criteria.push({ metric: 'Debt/Equity', value: debtEquity, score: 4, status: 'Average', note: 'Moderate debt' });
+    
+    // Debt to Equity Ratio (10 points)
+    const debtEquity = parseNum(currentData.debt_to_equity);
+    if (debtEquity !== null) {
+        if (debtEquity <= 0.3) {
+            totalScore += 10;
+            analysis.criteria.push({ 
+                metric: 'Debt/Equity', 
+                value: debtEquity.toFixed(2), 
+                score: 10, 
+                status: 'Excellent', 
+                note: 'Very low debt - Financially robust' 
+            });
+        } else if (debtEquity <= 0.5) {
+            totalScore += 8;
+            analysis.criteria.push({ 
+                metric: 'Debt/Equity', 
+                value: debtEquity.toFixed(2), 
+                score: 8, 
+                status: 'Very Good', 
+                note: 'Conservative debt levels' 
+            });
+        } else if (debtEquity <= 0.75) {
+            totalScore += 6;
+            analysis.criteria.push({ 
+                metric: 'Debt/Equity', 
+                value: debtEquity.toFixed(2), 
+                score: 6, 
+                status: 'Good', 
+                note: 'Manageable debt' 
+            });
+        } else if (debtEquity <= 1.0) {
+            totalScore += 3;
+            analysis.criteria.push({ 
+                metric: 'Debt/Equity', 
+                value: debtEquity.toFixed(2), 
+                score: 3, 
+                status: 'Average', 
+                note: 'Moderate debt - Monitor closely' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'Debt/Equity', 
+                value: debtEquity.toFixed(2), 
+                score: 0, 
+                status: 'Poor', 
+                note: 'High debt risk - Financial stress possible' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'Debt/Equity', value: debtEquity, score: 0, status: 'Poor', note: 'High debt risk' });
+        analysis.criteria.push({ 
+            metric: 'Debt/Equity', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Debt data unavailable' 
+        });
     }
     maxScore += 10;
     
-    // 4. GROWTH METRICS (15 points)
-    // Quarterly Profit Growth
-    const qtrProfitGrowth = parseFloat(currentData?.qtr_profit_var_per);
-    if (qtrProfitGrowth >= 20) {
-        totalScore += 8;
-        analysis.criteria.push({ metric: 'Quarterly Profit Growth', value: `${qtrProfitGrowth}%`, score: 8, status: 'Excellent', note: 'Strong profit growth' });
-    } else if (qtrProfitGrowth >= 10) {
-        totalScore += 6;
-        analysis.criteria.push({ metric: 'Quarterly Profit Growth', value: `${qtrProfitGrowth}%`, score: 6, status: 'Good', note: 'Good growth momentum' });
-    } else if (qtrProfitGrowth >= 0) {
-        totalScore += 3;
-        analysis.criteria.push({ metric: 'Quarterly Profit Growth', value: `${qtrProfitGrowth}%`, score: 3, status: 'Average', note: 'Positive growth' });
+    // Current Ratio - from quarterly balance sheet (10 points)
+    if (recentBalanceSheet) {
+        const currentAssets = parseNum(recentBalanceSheet.current_assets);
+        const currentLiabilities = parseNum(recentBalanceSheet.current_liabilities);
+        
+        if (currentAssets !== null && currentLiabilities !== null && currentLiabilities > 0) {
+            const currentRatio = currentAssets / currentLiabilities;
+            
+            if (currentRatio >= 2) {
+                totalScore += 10;
+                analysis.criteria.push({ 
+                    metric: 'Current Ratio', 
+                    value: currentRatio.toFixed(2), 
+                    score: 10, 
+                    status: 'Excellent', 
+                    note: 'Strong liquidity position' 
+                });
+            } else if (currentRatio >= 1.5) {
+                totalScore += 8;
+                analysis.criteria.push({ 
+                    metric: 'Current Ratio', 
+                    value: currentRatio.toFixed(2), 
+                    score: 8, 
+                    status: 'Very Good', 
+                    note: 'Healthy liquidity' 
+                });
+            } else if (currentRatio >= 1.2) {
+                totalScore += 6;
+                analysis.criteria.push({ 
+                    metric: 'Current Ratio', 
+                    value: currentRatio.toFixed(2), 
+                    score: 6, 
+                    status: 'Good', 
+                    note: 'Adequate liquidity' 
+                });
+            } else if (currentRatio >= 1.0) {
+                totalScore += 3;
+                analysis.criteria.push({ 
+                    metric: 'Current Ratio', 
+                    value: currentRatio.toFixed(2), 
+                    score: 3, 
+                    status: 'Average', 
+                    note: 'Tight liquidity - Monitor working capital' 
+                });
+            } else {
+                totalScore += 0;
+                analysis.criteria.push({ 
+                    metric: 'Current Ratio', 
+                    value: currentRatio.toFixed(2), 
+                    score: 0, 
+                    status: 'Poor', 
+                    note: 'Liquidity concerns - Short-term risk' 
+                });
+            }
+        } else {
+            analysis.criteria.push({ 
+                metric: 'Current Ratio', 
+                value: 'N/A', 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Balance sheet data incomplete' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'Quarterly Profit Growth', value: `${qtrProfitGrowth}%`, score: 0, status: 'Poor', note: 'Declining profits' });
+        analysis.criteria.push({ 
+            metric: 'Current Ratio', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Balance sheet data unavailable' 
+        });
+    }
+    maxScore += 10;
+    
+    // 4. GROWTH METRICS (20 points)
+    
+    // Quarterly Profit Growth (8 points)
+    const qtrProfitGrowth = parseNum(currentData.qtr_profit_var_per);
+    if (qtrProfitGrowth !== null) {
+        if (qtrProfitGrowth >= 25) {
+            totalScore += 8;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Profit Growth', 
+                value: `${qtrProfitGrowth.toFixed(2)}%`, 
+                score: 8, 
+                status: 'Excellent', 
+                note: 'Exceptional profit momentum' 
+            });
+        } else if (qtrProfitGrowth >= 15) {
+            totalScore += 7;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Profit Growth', 
+                value: `${qtrProfitGrowth.toFixed(2)}%`, 
+                score: 7, 
+                status: 'Very Good', 
+                note: 'Strong profit growth' 
+            });
+        } else if (qtrProfitGrowth >= 10) {
+            totalScore += 5;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Profit Growth', 
+                value: `${qtrProfitGrowth.toFixed(2)}%`, 
+                score: 5, 
+                status: 'Good', 
+                note: 'Healthy growth momentum' 
+            });
+        } else if (qtrProfitGrowth >= 0) {
+            totalScore += 3;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Profit Growth', 
+                value: `${qtrProfitGrowth.toFixed(2)}%`, 
+                score: 3, 
+                status: 'Average', 
+                note: 'Positive but slow growth' 
+            });
+        } else if (qtrProfitGrowth >= -10) {
+            totalScore += 1;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Profit Growth', 
+                value: `${qtrProfitGrowth.toFixed(2)}%`, 
+                score: 1, 
+                status: 'Below Average', 
+                note: 'Declining profits - Short-term concern' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Profit Growth', 
+                value: `${qtrProfitGrowth.toFixed(2)}%`, 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Significant profit decline' 
+            });
+        }
+    } else {
+        analysis.criteria.push({ 
+            metric: 'Quarterly Profit Growth', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Quarterly profit growth unavailable' 
+        });
     }
     maxScore += 8;
     
-    // Quarterly Sales Growth
-    const qtrSalesGrowth = parseFloat(currentData?.qtr_sales_var_per);
-    if (qtrSalesGrowth >= 15) {
-        totalScore += 7;
-        analysis.criteria.push({ metric: 'Quarterly Sales Growth', value: `${qtrSalesGrowth}%`, score: 7, status: 'Excellent', note: 'Strong revenue growth' });
-    } else if (qtrSalesGrowth >= 5) {
-        totalScore += 5;
-        analysis.criteria.push({ metric: 'Quarterly Sales Growth', value: `${qtrSalesGrowth}%`, score: 5, status: 'Good', note: 'Steady revenue growth' });
-    } else if (qtrSalesGrowth >= 0) {
-        totalScore += 2;
-        analysis.criteria.push({ metric: 'Quarterly Sales Growth', value: `${qtrSalesGrowth}%`, score: 2, status: 'Average', note: 'Slow growth' });
+    // Quarterly Sales Growth (7 points)
+    const qtrSalesGrowth = parseNum(currentData.qtr_sales_var_per);
+    if (qtrSalesGrowth !== null) {
+        if (qtrSalesGrowth >= 20) {
+            totalScore += 7;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Sales Growth', 
+                value: `${qtrSalesGrowth.toFixed(2)}%`, 
+                score: 7, 
+                status: 'Excellent', 
+                note: 'Exceptional revenue momentum' 
+            });
+        } else if (qtrSalesGrowth >= 15) {
+            totalScore += 6;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Sales Growth', 
+                value: `${qtrSalesGrowth.toFixed(2)}%`, 
+                score: 6, 
+                status: 'Very Good', 
+                note: 'Strong revenue growth' 
+            });
+        } else if (qtrSalesGrowth >= 10) {
+            totalScore += 5;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Sales Growth', 
+                value: `${qtrSalesGrowth.toFixed(2)}%`, 
+                score: 5, 
+                status: 'Good', 
+                note: 'Healthy revenue growth' 
+            });
+        } else if (qtrSalesGrowth >= 5) {
+            totalScore += 3;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Sales Growth', 
+                value: `${qtrSalesGrowth.toFixed(2)}%`, 
+                score: 3, 
+                status: 'Average', 
+                note: 'Steady but moderate growth' 
+            });
+        } else if (qtrSalesGrowth >= 0) {
+            totalScore += 1;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Sales Growth', 
+                value: `${qtrSalesGrowth.toFixed(2)}%`, 
+                score: 1, 
+                status: 'Below Average', 
+                note: 'Stagnant revenue growth' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'Quarterly Sales Growth', 
+                value: `${qtrSalesGrowth.toFixed(2)}%`, 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Declining sales - Demand concern' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'Quarterly Sales Growth', value: `${qtrSalesGrowth}%`, score: 0, status: 'Poor', note: 'Declining sales' });
+        analysis.criteria.push({ 
+            metric: 'Quarterly Sales Growth', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Quarterly sales growth unavailable' 
+        });
     }
     maxScore += 7;
     
-    // 5. OWNERSHIP QUALITY (15 points)
-    // Promoter Holding
-    const promoterHolding = parseFloat(currentData?.promoter_holding_per);
-    if (promoterHolding >= 50) {
-        totalScore += 8;
-        analysis.criteria.push({ metric: 'Promoter Holding', value: `${promoterHolding}%`, score: 8, status: 'Excellent', note: 'Strong promoter confidence' });
-    } else if (promoterHolding >= 30) {
-        totalScore += 6;
-        analysis.criteria.push({ metric: 'Promoter Holding', value: `${promoterHolding}%`, score: 6, status: 'Good', note: 'Good promoter stake' });
-    } else if (promoterHolding >= 20) {
-        totalScore += 3;
-        analysis.criteria.push({ metric: 'Promoter Holding', value: `${promoterHolding}%`, score: 3, status: 'Average', note: 'Adequate promoter stake' });
+    // 5-Year Revenue Growth (5 points)
+    const revGrowth5y = parseNum(currentData.rev_growth_5y);
+    if (revGrowth5y !== null) {
+        if (revGrowth5y >= 15) {
+            totalScore += 5;
+            analysis.criteria.push({ 
+                metric: '5-Year Revenue CAGR', 
+                value: `${revGrowth5y.toFixed(2)}%`, 
+                score: 5, 
+                status: 'Excellent', 
+                note: 'Consistent long-term growth' 
+            });
+        } else if (revGrowth5y >= 10) {
+            totalScore += 4;
+            analysis.criteria.push({ 
+                metric: '5-Year Revenue CAGR', 
+                value: `${revGrowth5y.toFixed(2)}%`, 
+                score: 4, 
+                status: 'Very Good', 
+                note: 'Strong historical growth' 
+            });
+        } else if (revGrowth5y >= 5) {
+            totalScore += 3;
+            analysis.criteria.push({ 
+                metric: '5-Year Revenue CAGR', 
+                value: `${revGrowth5y.toFixed(2)}%`, 
+                score: 3, 
+                status: 'Good', 
+                note: 'Steady growth track record' 
+            });
+        } else if (revGrowth5y >= 0) {
+            totalScore += 1;
+            analysis.criteria.push({ 
+                metric: '5-Year Revenue CAGR', 
+                value: `${revGrowth5y.toFixed(2)}%`, 
+                score: 1, 
+                status: 'Average', 
+                note: 'Slow long-term growth' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: '5-Year Revenue CAGR', 
+                value: `${revGrowth5y.toFixed(2)}%`, 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Declining revenue over time' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'Promoter Holding', value: `${promoterHolding}%`, score: 0, status: 'Poor', note: 'Low promoter confidence' });
+        analysis.criteria.push({ 
+            metric: '5-Year Revenue CAGR', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Long-term growth data unavailable' 
+        });
     }
-    maxScore += 8;
+    maxScore += 5;
     
-    // FII + DII Holdings (Institutional Interest)
-    const fiiHolding = parseFloat(recentShareholding?.fii_per || 0);
-    const diiHolding = parseFloat(recentShareholding?.dii_per || 0);
-    const institutionalHolding = fiiHolding + diiHolding;
+    // 5. OWNERSHIP QUALITY (10 points)
     
-    if (institutionalHolding >= 30) {
-        totalScore += 7;
-        analysis.criteria.push({ metric: 'Institutional Holdings', value: `${institutionalHolding.toFixed(1)}%`, score: 7, status: 'Excellent', note: 'Strong institutional backing' });
-    } else if (institutionalHolding >= 20) {
-        totalScore += 5;
-        analysis.criteria.push({ metric: 'Institutional Holdings', value: `${institutionalHolding.toFixed(1)}%`, score: 5, status: 'Good', note: 'Good institutional interest' });
-    } else if (institutionalHolding >= 10) {
-        totalScore += 3;
-        analysis.criteria.push({ metric: 'Institutional Holdings', value: `${institutionalHolding.toFixed(1)}%`, score: 3, status: 'Average', note: 'Moderate institutional interest' });
+    // Promoter Holding (6 points)
+    const promoterHolding = parseNum(currentData.promoter_holding_per);
+    if (promoterHolding !== null) {
+        if (promoterHolding >= 50) {
+            totalScore += 6;
+            analysis.criteria.push({ 
+                metric: 'Promoter Holding', 
+                value: `${promoterHolding.toFixed(2)}%`, 
+                score: 6, 
+                status: 'Excellent', 
+                note: 'Strong promoter confidence and alignment' 
+            });
+        } else if (promoterHolding >= 40) {
+            totalScore += 5;
+            analysis.criteria.push({ 
+                metric: 'Promoter Holding', 
+                value: `${promoterHolding.toFixed(2)}%`, 
+                score: 5, 
+                status: 'Very Good', 
+                note: 'Good promoter stake' 
+            });
+        } else if (promoterHolding >= 30) {
+            totalScore += 4;
+            analysis.criteria.push({ 
+                metric: 'Promoter Holding', 
+                value: `${promoterHolding.toFixed(2)}%`, 
+                score: 4, 
+                status: 'Good', 
+                note: 'Adequate promoter stake' 
+            });
+        } else if (promoterHolding >= 20) {
+            totalScore += 2;
+            analysis.criteria.push({ 
+                metric: 'Promoter Holding', 
+                value: `${promoterHolding.toFixed(2)}%`, 
+                score: 2, 
+                status: 'Average', 
+                note: 'Lower promoter confidence' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'Promoter Holding', 
+                value: `${promoterHolding.toFixed(2)}%`, 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Very low promoter confidence' 
+            });
+        }
     } else {
-        totalScore += 0;
-        analysis.criteria.push({ metric: 'Institutional Holdings', value: `${institutionalHolding.toFixed(1)}%`, score: 0, status: 'Poor', note: 'Low institutional interest' });
+        analysis.criteria.push({ 
+            metric: 'Promoter Holding', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Promoter holding data unavailable' 
+        });
     }
-    maxScore += 7;
+    maxScore += 6;
+    
+    // Institutional Ownership (4 points)
+    const institutionalOwnership = parseNum(currentData.institution_ownership);
+    if (institutionalOwnership !== null) {
+        if (institutionalOwnership >= 30) {
+            totalScore += 4;
+            analysis.criteria.push({ 
+                metric: 'Institutional Ownership', 
+                value: `${institutionalOwnership.toFixed(2)}%`, 
+                score: 4, 
+                status: 'Excellent', 
+                note: 'Strong institutional backing' 
+            });
+        } else if (institutionalOwnership >= 20) {
+            totalScore += 3;
+            analysis.criteria.push({ 
+                metric: 'Institutional Ownership', 
+                value: `${institutionalOwnership.toFixed(2)}%`, 
+                score: 3, 
+                status: 'Very Good', 
+                note: 'Good institutional interest' 
+            });
+        } else if (institutionalOwnership >= 10) {
+            totalScore += 2;
+            analysis.criteria.push({ 
+                metric: 'Institutional Ownership', 
+                value: `${institutionalOwnership.toFixed(2)}%`, 
+                score: 2, 
+                status: 'Good', 
+                note: 'Moderate institutional interest' 
+            });
+        } else if (institutionalOwnership >= 5) {
+            totalScore += 1;
+            analysis.criteria.push({ 
+                metric: 'Institutional Ownership', 
+                value: `${institutionalOwnership.toFixed(2)}%`, 
+                score: 1, 
+                status: 'Average', 
+                note: 'Limited institutional presence' 
+            });
+        } else {
+            totalScore += 0;
+            analysis.criteria.push({ 
+                metric: 'Institutional Ownership', 
+                value: `${institutionalOwnership.toFixed(2)}%`, 
+                score: 0, 
+                status: 'Poor', 
+                note: 'Minimal institutional interest' 
+            });
+        }
+    } else {
+        analysis.criteria.push({ 
+            metric: 'Institutional Ownership', 
+            value: 'N/A', 
+            score: 0, 
+            status: 'Poor', 
+            note: 'Institutional ownership data unavailable' 
+        });
+    }
+    maxScore += 4;
     
     // Calculate final score percentage
-    analysis.finalScore = Math.round((totalScore / maxScore) * 100);
+    analysis.finalScore = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
     
-    // Determine recommendation based on score ranges used by analysts
-    if (analysis.finalScore >= 75) {
+    // Determine recommendation based on score ranges
+    if (analysis.finalScore >= 80) {
         analysis.recommendation = true;
         analysis.riskLevel = 'Low';
-        analysis.summary = `Strong Buy - Excellent fundamentals with low risk level and score of ${analysis.finalScore}%. This stock demonstrates superior financial health, profitability, and growth prospects suitable for long-term investment.`;
+        analysis.summary = `Strong Buy - Outstanding fundamentals with low risk level and score of ${analysis.finalScore}%. This stock demonstrates exceptional financial health, profitability, and growth prospects. Ideal for long-term wealth creation.`;
+    } else if (analysis.finalScore >= 70) {
+        analysis.recommendation = true;
+        analysis.riskLevel = 'Low-Medium';
+        analysis.summary = `Buy - Excellent fundamentals with score of ${analysis.finalScore}% and risk level is low-medium. Strong investment choice with good risk-reward profile for long-term investors.`;
     } else if (analysis.finalScore >= 60) {
         analysis.recommendation = true;
         analysis.riskLevel = 'Medium';
-        analysis.summary = `Buy - Good fundamentals with score of ${analysis.finalScore}% and risk level is medium. Solid investment choice with reasonable risk-reward profile for long-term investors.`;
-    } else if (analysis.finalScore >= 45) {
+        analysis.summary = `Buy - Good fundamentals with score of ${analysis.finalScore}% and risk level is medium. Solid investment opportunity with reasonable risk for long-term portfolio.`;
+    } else if (analysis.finalScore >= 50) {
         analysis.recommendation = false;
         analysis.riskLevel = 'Medium';
         analysis.summary = `Hold/Neutral - Mixed fundamentals with medium risk level and score of ${analysis.finalScore}%. Some strengths but also areas of concern. Consider waiting for better entry point.`;
+    } else if (analysis.finalScore >= 40) {
+        analysis.recommendation = false;
+        analysis.riskLevel = 'Medium-High';
+        analysis.summary = `Hold with Caution - Below average fundamentals with score of ${analysis.finalScore}% (Medium-High risk level). Multiple concerns identified. Not recommended for new positions.`;
     } else {
         analysis.recommendation = false;
         analysis.riskLevel = 'High';
@@ -244,19 +894,6 @@ function calculate_long_term_stock_recommendation(stockData) {
 
 function long_term_stock_recommend_analysis(stockData) {
     const analysis = calculate_long_term_stock_recommendation(stockData);
-    
-    // console.log("=== STOCK ANALYSIS REPORT ===");
-    // console.log(`Company: ${stockData.company_ratio_analysis_data[0].company_name}`);
-    // console.log(`Current Price: ₹${stockData.company_ratio_analysis_data[0].current_price}`);
-    // console.log(`Final Score: ${analysis.finalScore}/100`);
-    // console.log(`Recommendation: ${analysis.recommendation ? 'BUY' : 'AVOID/HOLD'}`);
-    // console.log(`Risk Level: ${analysis.riskLevel}`);
-    // console.log(`Summary: ${analysis.summary}`);
-    
-    // console.log("\n=== DETAILED ANALYSIS ===");
-    // analysis.criteria.forEach(criterion => {
-    //     console.log(`${criterion.metric}: ${criterion.value} | Score: ${criterion.score} | Status: ${criterion.status} | ${criterion.note}`);
-    // });
     
     return analysis;
 }
