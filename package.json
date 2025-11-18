@@ -16,6 +16,7 @@
     "@langchain/google-genai": "^0.2.18",
     "axios": "^1.12.2",
     "chart.js": "^4.5.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
