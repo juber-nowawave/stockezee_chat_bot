@@ -153,7 +153,7 @@ const get_stocks_by_query = async (selectFields = null, whereClause = null) => {
      dividend_yield_per, roce_per, roe_per, face_value, net_prof_marg_ann
     FROM nse_company_details
   `;
-  
+
   if (whereClause) {
     sql += ` WHERE ${whereClause}`;
   }
@@ -1421,7 +1421,10 @@ export const get_all_fields = async (req, res) => {
         continue;
       }
 
-      const longName = fieldMap[column_name] || column_name;
+      const longName = fieldMap[column_name];
+      
+      if (longName === undefined) continue;
+
       const info = columns_info[longName];
 
       data.push({
