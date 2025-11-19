@@ -383,10 +383,10 @@ export const query_resolve = async (req, res) => {
       error.message.includes("Allowed") ||
       error.message.includes("Expected")
     ) {
-      return res.status(400).json({
-        status: 0,
-        message: error.message,
-        data: null,
+      return res.status(200).json({
+        status: 1,
+        message: "Data not found!",
+        data: {},
       });
     }
     return res.status(500).json({
