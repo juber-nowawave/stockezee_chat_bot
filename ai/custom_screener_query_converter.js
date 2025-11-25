@@ -245,8 +245,7 @@ Return ONLY the structured query string:`;
 
     const result = await model.invoke(prompt);
     const convertedQuery = result.content.trim();
-    console.log('----------->>>>',convertedQuery);
-    
+
     // Validate that the response contains valid field names
     const usedFields = convertedQuery.match(/[a-z_]+/g) || [];
     const invalidFields = usedFields.filter(

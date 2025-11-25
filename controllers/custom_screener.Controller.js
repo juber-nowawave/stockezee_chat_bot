@@ -1,5 +1,5 @@
 import prebuild_screens from "../data/custom_screener_screens_collections.json" with { type: "json" };
-import {custom_screener_query_resolve, custom_screener_get_all_fields, custom_screener_natural_language_query, custom_screener_smart_query } from "../services/custom_screener.Services.js"
+import {custom_screener_query_resolve, custom_screener_get_all_fields } from "../services/custom_screener.Services.js"
 
 export const query_resolve = async (req, res) => {
     const { user_query } = req.query;
@@ -17,16 +17,4 @@ export const get_prebuild_screens = (req, res) => {
     message: "success",
     data: prebuild_screens,
   });
-};
-
-export const natural_language_query = async (req, res) => {
-    const { user_query } = req.query;
-    const response = await custom_screener_natural_language_query(user_query);
-    return res.status(response.res_status).json(response.res);
-};
-
-export const smart_query = async (req, res) => {
-    const { user_query } = req.query;
-    const response = await custom_screener_smart_query(user_query);
-    return res.status(response.res_status).json(response.res);
 };
