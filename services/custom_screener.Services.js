@@ -342,6 +342,37 @@ export const custom_screener_query_resolve = async (user_query) => {
       };
     }
 
+    const structuredPattern = /[a-z_]+\s*(>|<|=|>=|<=|!=)\s*[\d.]+/i;
+    const isStructured = structuredPattern.test(user_query);
+
+    // if statement is for natural query
+    if (!isStructured) {
+      // console.log("Detected natural language query, converting...");
+      const conversionResult = await convert_natural_language_to_query(
+        user_query
+      );
+
+      if (!conversionResult.success || !conversionResult.converted_query) {
+        return {
+          res_status: 400,
+          res: {
+            status: 0,
+            message:
+              "Failed to understand your query. Please try rephrasing it or use structured format.",
+            data: {
+              original_query: user_query,
+              error: conversionResult.message,
+              hint: "Try format like: market_cap > 500 AND current_price < 15",
+            },
+          },
+        };
+      }
+
+      console.log(`Converted: "${conversionResult.converted_query}"`);
+      user_query = conversionResult.converted_query;
+    }
+
+    console.log("Detected structured query, processing directly...");
     const conditions = parse_filter(user_query);
     const usedFields = collect_used_fields(conditions);
 
@@ -1463,71 +1494,6 @@ export const custom_screener_get_all_fields = async () => {
   }
 };
 
-export const custom_screener_natural_language_query = async (user_query) => {
-  try {
-    if (!user_query || user_query.trim() === "") {
-      return {
-        res_status: 400,
-        res: {
-          status: 0,
-          message:
-            "Please provide a natural language query. Example: 'market cap greater than 700 lakh and high is 3000'",
-          data: null,
-        },
-      };
-    }
-
-    const conversionResult = await convert_natural_language_to_query(
-      user_query
-    );
-
-    if (!conversionResult.success || !conversionResult.converted_query) {
-      return {
-        res_status: 400,
-        res: {
-          status: 0,
-          message: "Failed to understand your query. Please try rephrasing it.",
-          data: {
-            original_query: user_query,
-            error: conversionResult.message,
-          },
-        },
-      };
-    }
-
-    console.log(`Natural Query: "${user_query}"`);
-    console.log(`Converted Query: "${conversionResult.converted_query}"`);
-
-    const queryResult = await custom_screener_query_resolve(
-      conversionResult.converted_query
-    );
-    return {
-      ...queryResult,
-      query_info: {
-        original_query: user_query,
-        converted_query: conversionResult.converted_query,
-      },
-    };
-    // return res.status(queryResult.res_status).json({
-    //   ...queryResult.res,
-    //   query_info: {
-    //     original_query: user_query,
-    //     converted_query: conversionResult.converted_query,
-    //   },
-    // });
-  } catch (error) {
-    console.error("Natural language query error:", error);
-    return {
-      res_status: 500,
-      res: {
-        status: 0,
-        message: "Internal server error. Please try again later.",
-        data: null,
-      },
-    };
-  }
-};
-
 export const custom_screener_smart_query = async (user_query) => {
   try {
     if (!user_query || user_query.trim() === "") {
@@ -1545,12 +1511,7 @@ export const custom_screener_smart_query = async (user_query) => {
     const structuredPattern = /[a-z_]+\s*(>|<|=|>=|<=|!=)\s*[\d.]+/i;
     const isStructured = structuredPattern.test(user_query);
 
-    if (isStructured) {
-      console.log("Detected structured query, processing directly...");
-      const queryResult = await custom_screener_query_resolve(user_query);
-      return queryResult;
-      // return res.status(queryResult.res_status).json(queryResult.res);
-    } else {
+    if (!isStructured) {
       console.log("Detected natural language query, converting...");
       const conversionResult = await convert_natural_language_to_query(
         user_query
@@ -1584,13 +1545,10 @@ export const custom_screener_smart_query = async (user_query) => {
           converted_query: conversionResult.converted_query,
         },
       };
-      // return res.status(queryResult.res_status).json({
-      //   ...queryResult.res,
-      //   query_info: {
-      //     original_query: user_query,
-      //     converted_query: conversionResult.converted_query,
-      //   },
-      // });
+    } else {
+      console.log("Detected structured query, processing directly...");
+      const queryResult = await custom_screener_query_resolve(user_query);
+      return queryResult;
     }
   } catch (error) {
     console.error("Smart query error:", error);
