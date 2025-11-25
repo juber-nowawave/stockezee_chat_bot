@@ -1,5 +1,6 @@
 import { verify_token } from "../services/jwt-auth.js";
 import db from "../models/index.js";
+import prebuild_screens from "../data/custom_screener_screens_collections.json" with { type: "json" };
 
 const VALID_FIELDS = [
   // Original fields (DECIMAL)
@@ -1445,4 +1446,12 @@ export const get_all_fields = async (req, res) => {
       data: null,
     });
   }
+};
+
+export const get_prebuild_screens = (req, res) => {
+  res.status(200).json({
+    status: 1,
+    message: "success",
+    data: prebuild_screens,
+  });
 };
