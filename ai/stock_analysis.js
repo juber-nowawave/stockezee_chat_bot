@@ -20,9 +20,9 @@ const gemini_keys = [
 
 const tableDescriptions = {
   nse_eq_stock_data_daily:
-    "This table contains live stock data for the current trading day. such as high, low, close, open, high52, low52, last_trade_price (ltp) etc",
+    "This table contains live stock data for the current trading day.",
   nse_eq_stock_historical_daily:
-    "This table contains historical equity stock data for up to the last 8 months, including daily records such as yesterday’s prices , 8 september 2025 and data from the past N days. table column such as such as high, low, close, open, high52, low52, last_trade_price (ltp) etc",
+    "This table contains end-of-day (EOD) data for previous trading days.",
   nse_eq_stock_data_intraday_daily:
     "This table contains intraday stock price data captured during market hours.",
   nse_company_bio:
@@ -31,25 +31,16 @@ const tableDescriptions = {
     "This table contains financial and ratio analysis data. Use when the query is about company performance.",
   nse_company_peers:
     "This table contains peer comparison data for companies based on similar industry or sector.",
-  nse_company_shareholding:
-    "This table contains shareholding pattern data of companies, including promoters, FIIs, DIIs, etc.",
-  nse_insider_corporate_scraped_data:
-    "This table contains insider trading and corporate action data scraped from NSE.",
-  nse_slbs_scraped_data:
-    "This table contains Securities Lending and Borrowing Scheme (SLBS) data from NSE.",
+  nse_stock_profit_loss:
+    "This table contains profit and loss (income statement) data for NSE stocks, including key metrics like revenue, net income, EBIT, expenses, and tax provisions.",
+  nse_stock_cash_flow:
+    "This table contains cash flow statement data for NSE stocks, including operating, investing, and financing cash flows, capex, free cash flow, and changes in working capital.",
+  nse_stock_balance_sheet:
+    "This table contains balance sheet data for NSE stocks, including assets (cash, receivables, property), liabilities (debt, payables), equity, and totals like total assets and shareholders' equity.",
   nse_eq_stock_candle_pettern_per_week:
     "Stores weekly candlestick pattern information for NSE equity stocks.",
   nse_eq_stock_candle_pettern_per_day:
     "Stores daily candlestick pattern information for NSE equity stocks.",
-  nse_company_financials:
-    "Contains detailed company financial data such as net profit, expenses, period, and profit before tax.",
-  nse_company_profile:
-    "Contains company profile information including name, series, industry, sector, trading status, board status, FFMC, and total market capitalization.",
-  global_mcx_equity_stock_data_daily:
-    "Contains daily data for global commodities and currencies.",
-  global_eq_stock_data_daily: "Contains daily data for global equity stocks.",
-  fii_buying_scrape_data:
-    "Contains Foreign Institutional Investor (FII) buying data scraped from NSE.",
 };
 
 let cachedTrainingData = null;
@@ -62,20 +53,68 @@ const getTrainingData = async () => {
 
   for (const table_name of tables) {
     try {
-      const [columns] = await db.sequelize.query(`
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_name = '${table_name}'
-        ORDER BY ordinal_position
-      `);
+      let columns;
+      let sampleRows;
+
+      // Handle vertical format tables
+      if (
+        [
+          "nse_stock_cash_flow",
+          "nse_stock_balance_sheet",
+          "nse_stock_profit_loss",
+        ].includes(table_name)
+      ) {
+        // Get distinct item names as columns for vertical format tables
+        columns = await db.sequelize.query(`
+          SELECT DISTINCT item_name as column_name 
+          FROM ${table_name}
+          ORDER BY item_name;
+        `);
+        [columns] = columns;
+
+        // Get sample data and transform from vertical to horizontal format
+        const verticalData = await db.sequelize.query(`
+          SELECT
+            symbol_name, 
+            period,
+            EXTRACT(YEAR FROM period)::int AS year,
+            jsonb_object_agg(item_name, amount) AS items
+          FROM ${table_name}
+          WHERE duration_type = 'quarterly'
+          GROUP BY symbol_name, period
+          ORDER BY period DESC
+          LIMIT 1;
+        `);
+        [sampleRows] = verticalData;
+
+        // Transform the data to include all fields
+        if (sampleRows && sampleRows.length > 0) {
+          sampleRows = sampleRows.map((data) => ({
+            symbol_name: data.symbol_name,
+            period: data.period,
+            year: data.year,
+            ...data.items,
+          }));
+        }
+      } else {
+        // Handle regular horizontal format tables
+        columns = await db.sequelize.query(`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_name = '${table_name}'
+          ORDER BY ordinal_position
+        `);
+        [columns] = columns;
+
+        sampleRows = await db.sequelize.query(`
+          SELECT * FROM ${table_name} 
+          ORDER BY created_at DESC 
+          LIMIT 1
+        `);
+        [sampleRows] = sampleRows;
+      }
 
       const columnNames = columns.map((col) => col.column_name);
-
-      const [sampleRows] = await db.sequelize.query(`
-        SELECT * FROM ${table_name} 
-        ORDER BY created_at DESC 
-        LIMIT 1
-      `);
 
       trainingData[table_name] = {
         description:
@@ -128,12 +167,11 @@ Given a user’s query, do BOTH in one step:
 1. Identify the single most relevant table from the schema above.
 2. Do NOT use UNION. Prefer selecting from just one logical table.
 3. Write a valid PostgreSQL SELECT query using the correct column names.
-4. Always include symbol/symbol_name in the WHERE clause.
+4. Always include symbol_name in the WHERE clause.
 5. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
 6. The explanation should be conversational, like a financial advisor talking to a client.
 7. If the user greets you formally with phrases like "Hey", "Hello", etc., you should also respond formally with replies such as "Hey, how can I help you?" or "Hello, how can I assist you today", etc. user query such as "how are you" etc so you have to response like "I am fine what about you" etc and in this case do'nt generate sql query and Set the "sql" key in the JSON output to null
 8. If the user enters an inappropriate or invalid query — such as random symbols ($@$%#@#@#@), etc — respond politely with a message like: "Sorry, I couldn’t understand your query. Please enter a valid stock query." Always guide the user back to providing a meaningful financial query.
-
 
 FORMATTING RULES:
 - Output only a JSON object with "sql" and "explanation" keys.

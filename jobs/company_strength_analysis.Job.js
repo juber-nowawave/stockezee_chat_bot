@@ -29,8 +29,9 @@ const strength_analysis = async () => {
      AND eq.symbol_name NOT IN (
       SELECT symbol_name
       FROM nse_company_details
-      WHERE DATE(created_at) IN (CURRENT_DATE)
-    );
+      WHERE DATE(created_at) IN (CURRENT_DATE - 1)
+    )
+    ORDER BY symbol_name DESC;
    `,
       { type: db.Sequelize.QueryTypes.SELECT }
     );
@@ -40,68 +41,6 @@ const strength_analysis = async () => {
     for (let i = 0; i < size; i++) {
       const symbol_name = symbol_name_arr[i];
       console.log(`==== Remaining ${size - i} symbols ====\n`,symbol_name);
-
-      // const ratio_analysis_data = await db.sequelize.query(
-      //   `select * from nse_company_details ncd where symbol_name = '${symbol_name}'`,
-      //   {
-      //     type: db.Sequelize.QueryTypes.SELECT,
-      //   }
-      // );
-
-      // const historic_stock_data = await db.sequelize.query(
-      //   `select * from nse_eq_stock_historical_daily ncd where symbol_name = '${symbol_name}' order by created_at desc limit 5`,
-      //   {
-      //     type: db.Sequelize.QueryTypes.SELECT,
-      //   }
-      // );
-
-      // const profit_lose_data = await db.sequelize.query(
-      //   `SELECT
-      //     symbol_name, period,
-      //     EXTRACT(YEAR FROM period)::int AS year,
-      //     jsonb_object_agg(item_name, amount) AS items
-      //    FROM
-      //      nse_stock_profit_loss
-      //    WHERE
-      //    symbol_name = '${symbol_name}' and duration_type = 'quarterly'
-      //    GROUP BY symbol_name, duration_type, period
-      //    ORDER BY period DESC;`,
-      //   {
-      //     type: db.Sequelize.QueryTypes.SELECT,
-      //   }
-      // );
-
-      // const cash_flow_data = await db.sequelize.query(
-      //   `SELECT
-      //     symbol_name, period,
-      //     EXTRACT(YEAR FROM period)::int AS year,
-      //     jsonb_object_agg(item_name, amount) AS items
-      //    FROM
-      //      nse_stock_cash_flow_data
-      //    WHERE
-      //    symbol_name = '${symbol_name}' and duration_type = 'quarterly'
-      //    GROUP BY symbol_name, duration_type, period
-      //    ORDER BY period DESC;`,
-      //   {
-      //     type: db.Sequelize.QueryTypes.SELECT,
-      //   }
-      // );
-
-      // const balance_sheet_data = await db.sequelize.query(
-      //   `SELECT
-      //     symbol_name, period,
-      //     EXTRACT(YEAR FROM period)::int AS year,
-      //     jsonb_object_agg(item_name, amount) AS items
-      //    FROM
-      //      nse_stock_balance_sheet_data
-      //    WHERE
-      //    symbol_name = '${symbol_name}' and duration_type = 'quarterly'
-      //    GROUP BY symbol_name, duration_type, period
-      //    ORDER BY period DESC;`,
-      //   {
-      //     type: db.Sequelize.QueryTypes.SELECT,
-      //   }
-      // );
 
       let [
         ratio_analysis_data,
