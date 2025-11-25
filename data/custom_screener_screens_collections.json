@@ -1,0 +1,448 @@
+{
+  "popular_themes": [
+    {
+      "title": "High ROE, Low Debt",
+      "backend_query": "roe_per > 15 AND debt_to_equity < 0.5",
+      "frontend_query": "ROE (TTM) > 15 AND Total Debt to Equity (Ann) < 0.5",
+      "description": "Companies with strong return on equity and manageable debt levels"
+    },
+    {
+      "title": "Consistent Profit Growth",
+      "backend_query": "eps_growth_3y > 15 AND eps_growth_5y > 12 AND net_prof_marg_ttm > 10",
+      "frontend_query": "EPS Growth 3Y > 15 AND EPS Growth 5Y > 12 AND Net Profit Margin (TTM) > 10",
+      "description": "Companies showing consistent earnings growth over 3-5 years"
+    },
+    {
+      "title": "Dividend Aristocrats",
+      "backend_query": "dividend_yield_per > 2 AND payout_ratio_ttm < 60 AND div_growth_rate_5y > 5",
+      "frontend_query": "Div Yield (TTM) > 2 AND Payout Ratio (TTM) < 60 AND Div Growth 5Y > 5",
+      "description": "Companies with good dividend yield and consistent dividend growth"
+    },
+    {
+      "title": "Quality Large Caps",
+      "backend_query": "market_cap > 50000 AND roe_per > 15 AND debt_to_equity < 1",
+      "frontend_query": "Market Cap > 50000 AND ROE (TTM) > 15 AND Total Debt to Equity (Ann) < 1",
+      "description": "Large market cap companies with strong fundamentals"
+    },
+    {
+      "title": "High Return on Capital",
+      "backend_query": "roce_per > 20 AND roe_5y > 15",
+      "frontend_query": "ROCE % > 20 AND ROE 5Y > 15",
+      "description": "Companies efficiently using capital to generate returns"
+    },
+    {
+      "title": "Debt-Free Champions",
+      "backend_query": "debt_to_equity < 0.25 AND roe_per > 12",
+      "frontend_query": "Total Debt to Equity (Ann) < 0.25 AND ROE (TTM) > 12",
+      "description": "Companies with minimal debt and decent profitability"
+    },
+    {
+      "title": "Cash Rich Companies",
+      "backend_query": "cash_share_ann > 50 AND debt_to_equity < 0.5",
+      "frontend_query": "Cash per Share (Ann) > 50 AND Total Debt to Equity (Ann) < 0.5",
+      "description": "Companies with strong cash positions and low debt"
+    },
+    {
+      "title": "Growth at Reasonable Price (GARP)",
+      "backend_query": "eps_growth_5y > 15 AND stock_p_e < 25 AND roe_per > 15",
+      "frontend_query": "EPS Growth 5Y > 15 AND PE (TTM) < 25 AND ROE (TTM) > 15",
+      "description": "Growing companies available at reasonable valuations"
+    },
+    {
+      "title": "Strong Operating Margins",
+      "backend_query": "opm_per > 20 AND op_marg_5y > 15",
+      "frontend_query": "Op Margin (TTM) > 20 AND Op Margin 5Y > 15",
+      "description": "Companies with superior and consistent operating margins"
+    },
+    {
+      "title": "High ROA Companies",
+      "backend_query": "return_on_assets_per > 10 AND roa_5y > 8",
+      "frontend_query": "ROA (TTM) > 10 AND ROA 5Y > 8",
+      "description": "Companies efficiently utilizing their assets"
+    }
+  ],
+  "popular_formulas": [
+    {
+      "title": "Magic Formula",
+      "backend_query": "roe_per > 20 AND stock_p_e < 20 AND stock_p_e > 0",
+      "frontend_query": "ROE (TTM) > 20 AND PE (TTM) < 20 AND PE (TTM) > 0",
+      "description": "Joel Greenblatt's magic formula - high returns at low prices"
+    },
+    {
+      "title": "Value Investing",
+      "backend_query": "stock_p_e < 15 AND price_to_book_value < 1.5 AND dividend_yield_per > 2",
+      "frontend_query": "PE (TTM) < 15 AND Price to Book < 1.5 AND Div Yield (TTM) > 2",
+      "description": "Classic value investing approach - low PE, PB with dividends"
+    },
+    {
+      "title": "Peter Lynch Screen",
+      "backend_query": "peg_ttm < 1 AND peg_ttm > 0 AND eps_growth_ttm_yoy > 10",
+      "frontend_query": "PEG (TTM) < 1 AND PEG (TTM) > 0 AND EPS Growth TTM YoY > 10",
+      "description": "PEG ratio less than 1 with positive earnings growth"
+    },
+    {
+      "title": "Buffett Style",
+      "backend_query": "roe_5y > 15 AND debt_to_equity < 0.5 AND net_prof_marg_5y > 10",
+      "frontend_query": "ROE 5Y > 15 AND Total Debt to Equity (Ann) < 0.5 AND Net Profit Margin 5Y > 10",
+      "description": "High ROE, low debt, consistent margins - Buffett's criteria"
+    },
+    {
+      "title": "High Dividend Yield",
+      "backend_query": "dividend_yield_per > 4 AND payout_ratio_ttm < 70",
+      "frontend_query": "Div Yield (TTM) > 4 AND Payout Ratio (TTM) < 70",
+      "description": "High dividend yield with sustainable payout ratios"
+    },
+    {
+      "title": "Low PE, High Growth",
+      "backend_query": "stock_p_e < 15 AND eps_growth_ttm_yoy > 20 AND rev_growth_ttm_yoy > 15",
+      "frontend_query": "PE (TTM) < 15 AND EPS Growth TTM YoY > 20 AND Revenue Growth TTM YoY > 15",
+      "description": "Undervalued stocks with strong growth momentum"
+    },
+    {
+      "title": "Graham's Value Screen",
+      "backend_query": "stock_p_e < 15 AND price_to_book_value < 1.5 AND debt_to_equity < 1",
+      "frontend_query": "PE (TTM) < 15 AND Price to Book < 1.5 AND Total Debt to Equity (Ann) < 1",
+      "description": "Benjamin Graham's value investing criteria"
+    },
+    {
+      "title": "Quality at Fair Price",
+      "backend_query": "roe_per > 18 AND stock_p_e < 30 AND debt_to_equity < 0.5",
+      "frontend_query": "ROE (TTM) > 18 AND PE (TTM) < 30 AND Total Debt to Equity (Ann) < 0.5",
+      "description": "High quality companies at reasonable valuations"
+    }
+  ],
+  "price_or_volume": [
+    {
+      "title": "52 Week High Breakout",
+      "backend_query": "current_price >= high_52w * 0.98",
+      "frontend_query": "Current Price >= 52W High * 0.98",
+      "description": "Stocks trading near or at their 52-week highs"
+    },
+    {
+      "title": "52 Week Low Bounce",
+      "backend_query": "current_price <= low_52w * 1.10 AND roe_per > 10",
+      "frontend_query": "Current Price <= 52W Low * 1.10 AND ROE (TTM) > 10",
+      "description": "Quality stocks near 52-week lows - potential value opportunities"
+    },
+    {
+      "title": "Strong YTD Performance",
+      "backend_query": "price_ret_daily_ytd > 30",
+      "frontend_query": "YTD Price Return > 30",
+      "description": "Stocks with strong year-to-date price performance"
+    },
+    {
+      "title": "High Volume Movers",
+      "backend_query": "avg_trading_vol_3m > 1000000",
+      "frontend_query": "3M Avg Volume > 1000000",
+      "description": "Stocks with high trading volumes indicating strong interest"
+    },
+    {
+      "title": "Momentum Stocks",
+      "backend_query": "price_ret_daily_13w > 20 AND price_ret_daily_26w > 30",
+      "frontend_query": "13W Price Return > 20 AND 26W Price Return > 30",
+      "description": "Stocks showing strong price momentum over multiple timeframes"
+    },
+    {
+      "title": "Oversold Quality Stocks",
+      "backend_query": "price_ret_daily_52w < -20 AND roe_per > 15 AND debt_to_equity < 1",
+      "frontend_query": "52W Price Return < -20 AND ROE (TTM) > 15 AND Total Debt to Equity (Ann) < 1",
+      "description": "Quality companies that have corrected significantly"
+    },
+    {
+      "title": "Strong Weekly Returns",
+      "backend_query": "price_ret_daily_5d > 5 AND avg_trading_vol_10d > 500000",
+      "frontend_query": "5D Price Return > 5 AND 10D Avg Volume > 500000",
+      "description": "Stocks with strong recent performance and good liquidity"
+    },
+    {
+      "title": "Low Volatility Quality",
+      "backend_query": "beta < 0.8 AND roe_per > 12 AND debt_to_equity < 0.5",
+      "frontend_query": "Beta < 0.8 AND ROE (TTM) > 12 AND Total Debt to Equity (Ann) < 0.5",
+      "description": "Stable quality stocks with low market volatility"
+    }
+  ],
+  "quarterly_results": [
+    {
+      "title": "Strong Quarterly Growth",
+      "backend_query": "eps_growth_qtr_yoy > 25 AND rev_growth_qtr_yoy > 20",
+      "frontend_query": "EPS Growth Qtr YoY > 25 AND Revenue Growth Qtr YoY > 20",
+      "description": "Companies with strong quarter-over-quarter growth"
+    },
+    {
+      "title": "Improving Margins",
+      "backend_query": "opm_per > op_marg_ann AND net_prof_marg_ttm > net_prof_marg_ann",
+      "frontend_query": "Op Margin (TTM) > Op Margin (Ann) AND Net Profit Margin (TTM) > Net Profit Margin (Ann)",
+      "description": "Companies showing margin expansion"
+    },
+    {
+      "title": "Consistent Quarterly Performers",
+      "backend_query": "qtr_profit_var_per > 15 AND qtr_sales_var_per > 10",
+      "frontend_query": "Qtr Profit Var % > 15 AND Qtr Sales Var % > 10",
+      "description": "Companies with consistent quarterly sales and profit growth"
+    },
+    {
+      "title": "Revenue Acceleration",
+      "backend_query": "rev_growth_qtr_yoy > rev_growth_ttm_yoy AND rev_growth_qtr_yoy > 20",
+      "frontend_query": "Revenue Growth Qtr YoY > Revenue Growth TTM YoY AND Revenue Growth Qtr YoY > 20",
+      "description": "Companies showing accelerating revenue growth"
+    },
+    {
+      "title": "Positive Earnings Surprise",
+      "backend_query": "eps_growth_qtr_yoy > 30 AND eps_growth_ttm_yoy > 20",
+      "frontend_query": "EPS Growth Qtr YoY > 30 AND EPS Growth TTM YoY > 20",
+      "description": "Companies beating earnings expectations"
+    },
+    {
+      "title": "Quarterly Profit Leaders",
+      "backend_query": "qtr_profit_var_per > 20 AND net_prof_marg_ttm > 12",
+      "frontend_query": "Qtr Profit Var % > 20 AND Net Profit Margin (TTM) > 12",
+      "description": "Strong quarterly profit growth with healthy margins"
+    },
+    {
+      "title": "Sales Growth Acceleration",
+      "backend_query": "qtr_sales_var_per > 15 AND rev_growth_3y > 12",
+      "frontend_query": "Qtr Sales Var % > 15 AND Revenue Growth 3Y > 12",
+      "description": "Companies with accelerating sales growth"
+    }
+  ],
+  "valuation_screens": [
+    {
+      "title": "Undervalued Gems",
+      "backend_query": "stock_p_e < 12 AND price_to_book_value < 1.5 AND roe_per > 12",
+      "frontend_query": "PE (TTM) < 12 AND Price to Book < 1.5 AND ROE (TTM) > 12",
+      "description": "Low PE and PB with decent profitability"
+    },
+    {
+      "title": "Low PE Quality",
+      "backend_query": "stock_p_e < 15 AND roe_per > 15 AND debt_to_equity < 0.5",
+      "frontend_query": "PE (TTM) < 15 AND ROE (TTM) > 15 AND Total Debt to Equity (Ann) < 0.5",
+      "description": "Quality companies trading at attractive PE ratios"
+    },
+    {
+      "title": "Low Price to Book",
+      "backend_query": "price_to_book_value < 1 AND roe_per > 10 AND book_val_growth_5y > 8",
+      "frontend_query": "Price to Book < 1 AND ROE (TTM) > 10 AND BV Growth 5Y > 8",
+      "description": "Stocks trading below book value with growing book value"
+    },
+    {
+      "title": "Low EV/EBITDA",
+      "backend_query": "ev_ebitda_ttm < 10 AND ev_ebitda_ttm > 0 AND ebitda_cagr_5y > 10",
+      "frontend_query": "EV to EBITDA (TTM) < 10 AND EV to EBITDA (TTM) > 0 AND EBITDA CAGR 5Y > 10",
+      "description": "Companies with attractive enterprise value to EBITDA ratios"
+    },
+    {
+      "title": "Low Price to Sales",
+      "backend_query": "ps_ttm < 1 AND net_prof_marg_ttm > 5 AND rev_growth_5y > 10",
+      "frontend_query": "Price to Sales (TTM) < 1 AND Net Profit Margin (TTM) > 5 AND Revenue Growth 5Y > 10",
+      "description": "Companies trading at low price-to-sales with profitability"
+    },
+    {
+      "title": "High Free Cash Flow Yield",
+      "backend_query": "pfcf_share_ttm < 15 AND pfcf_share_ttm > 0 AND focf_cagr_5y > 10",
+      "frontend_query": "Price to FCF (TTM) < 15 AND Price to FCF (TTM) > 0 AND FOCF CAGR 5Y > 10",
+      "description": "Companies generating strong free cash flow relative to price"
+    },
+    {
+      "title": "Cheap Growth Stocks",
+      "backend_query": "stock_p_e < 20 AND eps_growth_5y > 15 AND rev_growth_5y > 12",
+      "frontend_query": "PE (TTM) < 20 AND EPS Growth 5Y > 15 AND Revenue Growth 5Y > 12",
+      "description": "Growing companies available at reasonable valuations"
+    },
+    {
+      "title": "Forward PE Value",
+      "backend_query": "fwd_pe < 12 AND fwd_pe > 0 AND eps_growth_ttm_yoy > 10",
+      "frontend_query": "Forward PE < 12 AND Forward PE > 0 AND EPS Growth TTM YoY > 10",
+      "description": "Low forward PE with positive earnings growth"
+    },
+    {
+      "title": "Price to Cash Flow Value",
+      "backend_query": "pcf_share_ttm < 10 AND cash_flow_share_ann > 10",
+      "frontend_query": "Price to CF (TTM) < 10 AND Cash Flow per Share (Ann) > 10",
+      "description": "Stocks with attractive price to cash flow ratios"
+    }
+  ],
+  "fundamental_strength": [
+    {
+      "title": "High Return on Investment",
+      "backend_query": "roi_ttm > 15 AND roi_5y > 12",
+      "frontend_query": "ROI (TTM) > 15 AND ROI 5Y > 12",
+      "description": "Companies delivering strong returns on investment"
+    },
+    {
+      "title": "Margin Leaders",
+      "backend_query": "net_prof_marg_ttm > 15 AND opm_per > 20",
+      "frontend_query": "Net Profit Margin (TTM) > 15 AND Op Margin (TTM) > 20",
+      "description": "Companies with superior profit margins"
+    },
+    {
+      "title": "Cash Flow Champions",
+      "backend_query": "cash_flow_share_ann > 20 AND focf_cagr_5y > 15",
+      "frontend_query": "Cash Flow per Share (Ann) > 20 AND FOCF CAGR 5Y > 15",
+      "description": "Companies with strong and growing cash flows"
+    },
+    {
+      "title": "Asset Light Business",
+      "backend_query": "return_on_assets_per > 15 AND roe_per > 20 AND debt_to_equity < 0.3",
+      "frontend_query": "ROA (TTM) > 15 AND ROE (TTM) > 20 AND Total Debt to Equity (Ann) < 0.3",
+      "description": "High ROA and ROE with minimal debt - asset-light models"
+    },
+    {
+      "title": "High Revenue per Employee",
+      "backend_query": "rev_emp_ann > 10 AND net_inc_emp_ttm > 0.5",
+      "frontend_query": "Revenue per Emp (Ann) > 10 AND Net Income per Emp (TTM) > 0.5",
+      "description": "Companies with high productivity per employee"
+    },
+    {
+      "title": "Strong Balance Sheet",
+      "backend_query": "debt_to_equity < 0.3 AND cash_share_ann > 30 AND roe_per > 12",
+      "frontend_query": "Total Debt to Equity (Ann) < 0.3 AND Cash per Share (Ann) > 30 AND ROE (TTM) > 12",
+      "description": "Companies with strong financial position"
+    },
+    {
+      "title": "Consistent ROE",
+      "backend_query": "roe_per > 15 AND roe_5y > 12 AND roe_rfy > 14",
+      "frontend_query": "ROE (TTM) > 15 AND ROE 5Y > 12 AND ROE (RFY) > 14",
+      "description": "Companies with consistently high return on equity"
+    },
+    {
+      "title": "Operating Efficiency",
+      "backend_query": "opm_per > 18 AND op_marg_5y > 15 AND return_on_assets_per > 10",
+      "frontend_query": "Op Margin (TTM) > 18 AND Op Margin 5Y > 15 AND ROA (TTM) > 10",
+      "description": "Companies with excellent operational efficiency"
+    }
+  ],
+  "growth_screens": [
+    {
+      "title": "Super Growth Stocks",
+      "backend_query": "rev_growth_5y > 25 AND eps_growth_5y > 25 AND roe_per > 15",
+      "frontend_query": "Revenue Growth 5Y > 25 AND EPS Growth 5Y > 25 AND ROE (TTM) > 15",
+      "description": "Companies with exceptional growth in revenue and earnings"
+    },
+    {
+      "title": "Sales Growth Leaders",
+      "backend_query": "rev_growth_ttm_yoy > 30 AND rev_growth_5y > 20",
+      "frontend_query": "Revenue Growth TTM YoY > 30 AND Revenue Growth 5Y > 20",
+      "description": "Companies with strong and consistent revenue growth"
+    },
+    {
+      "title": "Earnings Growth Leaders",
+      "backend_query": "eps_growth_ttm_yoy > 30 AND eps_growth_5y > 20 AND net_prof_marg_ttm > 10",
+      "frontend_query": "EPS Growth TTM YoY > 30 AND EPS Growth 5Y > 20 AND Net Profit Margin (TTM) > 10",
+      "description": "Companies with strong earnings growth and profitability"
+    },
+    {
+      "title": "Book Value Growth",
+      "backend_query": "book_val_growth_5y > 15 AND roe_5y > 15",
+      "frontend_query": "BV Growth 5Y > 15 AND ROE 5Y > 15",
+      "description": "Companies growing their book value consistently"
+    },
+    {
+      "title": "High CapEx Growth",
+      "backend_query": "capex_cagr_5y > 20 AND roe_per > 15",
+      "frontend_query": "CapEx CAGR 5Y > 20 AND ROE (TTM) > 15",
+      "description": "Companies investing heavily in growth while maintaining profitability"
+    },
+    {
+      "title": "EBITDA Growth Leaders",
+      "backend_query": "ebitda_cagr_5y > 20 AND ebitda_int_cagr_5y > 15",
+      "frontend_query": "EBITDA CAGR 5Y > 20 AND EBITDA Int CAGR 5Y > 15",
+      "description": "Companies with strong EBITDA growth"
+    },
+    {
+      "title": "Revenue Per Share Growth",
+      "backend_query": "rev_share_growth_5y > 15 AND rev_growth_5y > 12",
+      "frontend_query": "Revenue Share Growth 5Y > 15 AND Revenue Growth 5Y > 12",
+      "description": "Companies growing revenue per share consistently"
+    },
+    {
+      "title": "EPS Growth Momentum",
+      "backend_query": "eps_growth_3y > 20 AND eps_growth_5y > 18 AND eps_growth_ttm_yoy > 15",
+      "frontend_query": "EPS Growth 3Y > 20 AND EPS Growth 5Y > 18 AND EPS Growth TTM YoY > 15",
+      "description": "Companies with accelerating earnings growth"
+    },
+    {
+      "title": "Tangible Book Value Growth",
+      "backend_query": "tbv_cagr_5y > 15 AND roe_per > 12",
+      "frontend_query": "TBV CAGR 5Y > 15 AND ROE (TTM) > 12",
+      "description": "Companies growing tangible book value with profitability"
+    }
+  ],
+  "dividend_screens": [
+    {
+      "title": "High Dividend Yield",
+      "backend_query": "dividend_yield_per > 4 AND payout_ratio_ttm < 70 AND debt_to_equity < 1",
+      "frontend_query": "Div Yield (TTM) > 4 AND Payout Ratio (TTM) < 70 AND Total Debt to Equity (Ann) < 1",
+      "description": "High dividend yield with sustainable payout and manageable debt"
+    },
+    {
+      "title": "Dividend Growth",
+      "backend_query": "div_growth_rate_5y > 10 AND dividend_yield_per > 2",
+      "frontend_query": "Div Growth 5Y > 10 AND Div Yield (TTM) > 2",
+      "description": "Companies consistently growing their dividends"
+    },
+    {
+      "title": "Stable Dividend Payers",
+      "backend_query": "dividend_yield_per > 3 AND payout_ratio_ttm < 50 AND roe_per > 12",
+      "frontend_query": "Div Yield (TTM) > 3 AND Payout Ratio (TTM) < 50 AND ROE (TTM) > 12",
+      "description": "Reliable dividend payers with room for growth"
+    },
+    {
+      "title": "Dividend Yield with Growth",
+      "backend_query": "dividend_yield_per > 3 AND div_growth_rate_5y > 8 AND eps_growth_5y > 10",
+      "frontend_query": "Div Yield (TTM) > 3 AND Div Growth 5Y > 8 AND EPS Growth 5Y > 10",
+      "description": "High yield with dividend and earnings growth"
+    }
+  ],
+  "momentum_screens": [
+    {
+      "title": "Multi-Timeframe Momentum",
+      "backend_query": "price_ret_daily_5d > 3 AND price_ret_daily_13w > 15 AND price_ret_daily_26w > 25",
+      "frontend_query": "5D Price Return > 3 AND 13W Price Return > 15 AND 26W Price Return > 25",
+      "description": "Stocks showing momentum across multiple timeframes"
+    },
+    {
+      "title": "Strong Annual Momentum",
+      "backend_query": "price_ret_daily_52w > 50 AND roe_per > 10",
+      "frontend_query": "52W Price Return > 50 AND ROE (TTM) > 10",
+      "description": "Stocks with strong annual returns and profitability"
+    },
+    {
+      "title": "YTD Winners",
+      "backend_query": "price_ret_daily_ytd > 40 AND market_cap > 5000",
+      "frontend_query": "YTD Price Return > 40 AND Market Cap > 5000",
+      "description": "Year-to-date winners with decent market cap"
+    },
+    {
+      "title": "Monthly Momentum",
+      "backend_query": "price_ret_daily_mtd > 10 AND avg_trading_vol_3m > 500000",
+      "frontend_query": "MTD Price Return > 10 AND 3M Avg Volume > 500000",
+      "description": "Strong monthly performance with good liquidity"
+    }
+  ],
+  "quality_screens": [
+    {
+      "title": "Quality at Any Price",
+      "backend_query": "roe_per > 20 AND roce_per > 25 AND debt_to_equity < 0.5",
+      "frontend_query": "ROE (TTM) > 20 AND ROCE % > 25 AND Total Debt to Equity (Ann) < 0.5",
+      "description": "Highest quality companies regardless of valuation"
+    },
+    {
+      "title": "Consistent Performers",
+      "backend_query": "roe_5y > 15 AND net_prof_marg_5y > 10 AND debt_to_equity < 0.5",
+      "frontend_query": "ROE 5Y > 15 AND Net Profit Margin 5Y > 10 AND Total Debt to Equity (Ann) < 0.5",
+      "description": "Companies with consistent performance over 5 years"
+    },
+    {
+      "title": "Financial Fortress",
+      "backend_query": "debt_to_equity < 0.2 AND cash_share_ann > 50 AND roe_per > 15",
+      "frontend_query": "Total Debt to Equity (Ann) < 0.2 AND Cash per Share (Ann) > 50 AND ROE (TTM) > 15",
+      "description": "Companies with fortress balance sheets"
+    },
+    {
+      "title": "Profit Margin Excellence",
+      "backend_query": "net_prof_marg_ttm > 20 AND net_prof_marg_5y > 15 AND opm_per > 25",
+      "frontend_query": "Net Profit Margin (TTM) > 20 AND Net Profit Margin 5Y > 15 AND Op Margin (TTM) > 25",
+      "description": "Companies with exceptional and consistent margins"
+    }
+  ]
+}
