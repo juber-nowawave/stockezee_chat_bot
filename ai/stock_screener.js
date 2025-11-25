@@ -1,23 +1,9 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import dotEnv from "dotenv";
 import db from "../models/index.js";
 import moment from "moment";
 import { getModelInstance } from "../utils/ai_models.js";
 
 dotEnv.config();
-
-const gemini_keys = [
-  "AIzaSyD7pZbsR0TTYanab0tWo4YLuAslgQm99m8",
-  "AIzaSyA_WI8rxxY3J3UFApsqPwDgTvRzm9WP1pw",
-  "AIzaSyAcq-na7B01r4jmW04wFiQq1fId2hfJluI",
-  "AIzaSyD0q1BotGSOkyfUQll08f7P-MhOlJD4CYI",
-  "AIzaSyAjXKODb8JtQoxMCLAFmN9piqArr_qbc6c",
-  "AIzaSyDO3fMZJbsgiFA0WUm4b_X_jG8DvkNtpHU",
-  "AIzaSyATNF479QLaGILiipviMSxGLB1hKVsRyO8",
-  "AIzaSyBtmcRALIuS9N9fVSURXJ2VnMYN8DN7VuU",
-  "AIzaSyDRfJXVsrvLhhkC4egQ3icVLjnJKBQ7drI",
-  "AIzaSyBZWWu249O2rB6yESZm2yF-9pfC8cJuuBM",
-];
 
 const tableDescriptions = {
   nse_eq_stock_data_daily:
@@ -32,25 +18,16 @@ const tableDescriptions = {
     "This table contains financial and ratio analysis data. Use when the query is about company performance.",
   nse_company_peers:
     "This table contains peer comparison data for companies based on similar industry or sector.",
-  nse_company_shareholding:
-    "This table contains shareholding pattern data of companies, including promoters, FIIs, DIIs, etc.",
-  nse_insider_corporate_scraped_data:
-    "This table contains insider trading and corporate action data scraped from NSE.",
-  nse_slbs_scraped_data:
-    "This table contains Securities Lending and Borrowing Scheme (SLBS) data from NSE.",
+  nse_stock_profit_loss:
+    "This table contains profit and loss (income statement) data for NSE stocks, including key metrics like revenue, net income, EBIT, expenses, and tax provisions.",
+  nse_stock_cash_flow:
+    "This table contains cash flow statement data for NSE stocks, including operating, investing, and financing cash flows, capex, free cash flow, and changes in working capital.",
+  nse_stock_balance_sheet:
+    "This table contains balance sheet data for NSE stocks, including assets (cash, receivables, property), liabilities (debt, payables), equity, and totals like total assets and shareholders' equity.",
   nse_eq_stock_candle_pettern_per_week:
     "Stores weekly candlestick pattern information for NSE equity stocks.",
   nse_eq_stock_candle_pettern_per_day:
     "Stores daily candlestick pattern information for NSE equity stocks.",
-  nse_company_financials:
-    "Contains detailed company financial data such as net profit, expenses, period, and profit before tax.",
-  nse_company_profile:
-    "Contains company profile information including name, series, industry, sector, trading status, board status, FFMC, and total market capitalization.",
-  global_mcx_equity_stock_data_daily:
-    "Contains daily data for global commodities and currencies.",
-  global_eq_stock_data_daily: "Contains daily data for global equity stocks.",
-  fii_buying_scrape_data:
-    "Contains Foreign Institutional Investor (FII) buying data scraped from NSE.",
 };
 
 let cachedTrainingData = null;
@@ -61,39 +38,50 @@ const getTrainingData = async () => {
   const tables = Object.keys(tableDescriptions);
   const trainingData = {};
 
-  for (const table_name of tables) {
-    try {
-      const [columns] = await db.sequelize.query(`
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_name = '${table_name}'
-        ORDER BY ordinal_position
-      `);
+  // Parallel execution for faster data fetching
+  await Promise.all(
+    tables.map(async (table_name) => {
+      try {
+        let columns;
 
-      const columnNames = columns.map((col) => col.column_name);
+        // Handle vertical format tables
+        if (
+          [
+            "nse_stock_cash_flow",
+            "nse_stock_balance_sheet",
+            "nse_stock_profit_loss",
+          ].includes(table_name)
+        ) {
+          // Get distinct item names as columns for vertical format tables
+          [columns] = await db.sequelize.query(
+            `SELECT DISTINCT item_name as column_name FROM ${table_name} LIMIT 50`,
+            { raw: true }
+          );
+        } else {
+          // Handle regular horizontal format tables
+          [columns] = await db.sequelize.query(
+            `SELECT column_name FROM information_schema.columns WHERE table_name = '${table_name}' ORDER BY ordinal_position`,
+            { raw: true }
+          );
+        }
 
-      const [sampleRows] = await db.sequelize.query(`
-        SELECT * FROM ${table_name} 
-        ORDER BY created_at DESC 
-        LIMIT 1
-      `);
+        const columnNames = columns.map((col) => col.column_name);
 
-      trainingData[table_name] = {
-        description:
-          tableDescriptions[table_name] || "No description provided.",
-        columns: columnNames,
-        sample_rows: sampleRows,
-      };
-    } catch (error) {
-      console.error(`Error fetching data for table ${table_name}:`, error);
-      trainingData[table_name] = {
-        description:
-          tableDescriptions[table_name] || "No description provided.",
-        columns: [],
-        sample_rows: [],
-      };
-    }
-  }
+        trainingData[table_name] = {
+          description:
+            tableDescriptions[table_name] || "No description provided.",
+          columns: columnNames,
+        };
+      } catch (error) {
+        console.error(`Error fetching data for table ${table_name}:`, error);
+        trainingData[table_name] = {
+          description:
+            tableDescriptions[table_name] || "No description provided.",
+          columns: [],
+        };
+      }
+    })
+  );
 
   cachedTrainingData = trainingData;
   return trainingData;
@@ -171,7 +159,7 @@ Return JSON in this format:
     const response = await Promise.race([
       model.invoke(prompt),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("AI request timeout")), 100000)
+        setTimeout(() => reject(new Error("AI request timeout")), 30000)
       ),
     ]);
 
@@ -264,7 +252,7 @@ NOTE: HTML should be without CSS or any style
         const response2 = await Promise.race([
           model.invoke(prompt2),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("AI request timeout")), 100000)
+            setTimeout(() => reject(new Error("AI request timeout")), 200000)
           ),
         ]);
         const cleanedHTML = response2?.content
@@ -281,23 +269,15 @@ NOTE: HTML should be without CSS or any style
         finalResponse = cleanedHTML;
       } else if (results.length === 1) {
         const result = results[0];
-        const prompt2 = `
-You are a financial data assistant.
-You are given this stock data:
-${JSON.stringify(result, null, 2)}
-
-TASK:
-Generate a **complete HTML block** containing:
-1. A <h2> heading summarizing the stock.
-2. One or more <p> paragraphs explaining the key details in plain language.
-3. No table needed since this is only one record.
-4. The final HTML should be ready for direct embedding (no Markdown, no JSON, no backticks).
-`;
+        const prompt2 = `Generate HTML (no CSS) for this stock: ${JSON.stringify(
+          result
+        )}
+Include <h2> heading and <p> explanation. No table needed. No markdown/backticks.`;
 
         const response2 = await Promise.race([
           model.invoke(prompt2),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("AI request timeout")), 20000)
+            setTimeout(() => reject(new Error("AI request timeout")), 15000)
           ),
         ]);
 
