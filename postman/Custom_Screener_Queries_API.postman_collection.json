@@ -1,0 +1,238 @@
+{
+  "info": {
+    "name": "Custom Screener API - Complete",
+    "description": "Complete CRUD API for managing custom stock screener queries (Updated endpoints)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Prebuild Screens",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/ai/api/custom-screener/prebuild-screens",
+          "host": ["{{base_url}}"],
+          "path": ["ai", "api", "custom-screener", "prebuild-screens"]
+        },
+        "description": "Get all prebuild screens from JSON file"
+      }
+    },
+    {
+      "name": "Search Screens",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/ai/api/custom-screener/search-screens?category=growth&publish=true&limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["ai", "api", "custom-screener", "search-screens"],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "123",
+              "disabled": true
+            },
+            {
+              "key": "category",
+              "value": "growth"
+            },
+            {
+              "key": "search",
+              "value": "EPS",
+              "disabled": true
+            },
+            {
+              "key": "publish",
+              "value": "true"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        },
+        "description": "Search and filter screens with various parameters"
+      }
+    },
+    {
+      "name": "Get Published Screens",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/ai/api/custom-screener/published-screens?category=value&limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["ai", "api", "custom-screener", "published-screens"],
+          "query": [
+            {
+              "key": "category",
+              "value": "value"
+            },
+            {
+              "key": "search",
+              "value": "dividend",
+              "disabled": true
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            },
+            {
+              "key": "offset",
+              "value": "0",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Get only published (public) screens"
+      }
+    },
+    {
+      "name": "Get User's Own Screens",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/ai/api/custom-screener/my-screens?user_id=123&limit=50",
+          "host": ["{{base_url}}"],
+          "path": ["ai", "api", "custom-screener", "my-screens"],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "123"
+            },
+            {
+              "key": "limit",
+              "value": "50"
+            },
+            {
+              "key": "offset",
+              "value": "0",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Get all screens created by a specific user"
+      }
+    },
+    {
+      "name": "Get Screen by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/ai/api/custom-screener/screen/5?user_id=123",
+          "host": ["{{base_url}}"],
+          "path": ["ai", "api", "custom-screener", "screen", "5"],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "123"
+            }
+          ]
+        },
+        "description": "Get a single screen by its ID"
+      }
+    },
+    {
+      "name": "Create User Screen",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 123,\n  \"category\": \"growth\",\n  \"title\": \"My Custom Growth Screen\",\n  \"description\": \"High growth companies with good margins\",\n  \"backend_query\": \"eps_growth_5y > 20 AND net_prof_marg_ttm > 10\",\n  \"frontend_query\": \"EPS Growth 5Y > 20% AND Net Profit Margin > 10%\",\n  \"publish\": false\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/ai/api/custom-screener/user-screen",
+          "host": ["{{base_url}}"],
+          "path": ["ai", "api", "custom-screener", "user-screen"]
+        },
+        "description": "Create a new custom screen"
+      }
+    },
+    {
+      "name": "Create Admin Screen",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 1,\n  \"category\": \"quality\",\n  \"title\": \"Quality at Fair Price\",\n  \"description\": \"High quality companies at reasonable valuations\",\n  \"backend_query\": \"roe_per > 18 AND stock_p_e < 30 AND debt_to_equity < 0.5\",\n  \"frontend_query\": \"ROE > 18% AND PE < 30 AND Debt to Equity < 0.5\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/ai/api/custom-screener/admin-screen",
+          "host": ["{{base_url}}"],
+          "path": ["ai", "api", "custom-screener", "admin-screen"]
+        },
+        "description": "Create a new admin screen (published by default)"
+      }
+    },
+    {
+      "name": "Update User Screen",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 123,\n  \"title\": \"Updated Screen Title\",\n  \"description\": \"Updated description\",\n  \"backend_query\": \"eps_growth_5y > 25 AND net_prof_marg_ttm > 12\",\n  \"frontend_query\": \"EPS Growth 5Y > 25% AND Net Profit Margin > 12%\",\n  \"publish\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/ai/api/custom-screener/screen/5",
+          "host": ["{{base_url}}"],
+          "path": ["ai", "api", "custom-screener", "screen", "5"]
+        },
+        "description": "Update an existing screen (user must own the screen)"
+      }
+    },
+    {
+      "name": "Delete User Screen",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 123\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/ai/api/custom-screener/screen/5",
+          "host": ["{{base_url}}"],
+          "path": ["ai", "api", "custom-screener", "screen", "5"]
+        },
+        "description": "Delete a screen (user must own the screen)"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4000",
+      "type": "string"
+    }
+  ]
+}
