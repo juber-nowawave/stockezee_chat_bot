@@ -6,7 +6,7 @@ export const get_all_screens = async (user_id) => {
   try {
     const queries = await db.custom_screener_queries.findAll({
       where: {
-        [Op.or]: [{ user_id: user_id }, { category: { [Op.ne]: "user made" } }],
+        [Op.or]: [{ user_id: user_id }, { user_id: { [Op.eq]: 0 } }],
       },
       order: [
         ["created_at", "DESC"],

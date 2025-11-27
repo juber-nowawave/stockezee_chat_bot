@@ -10,7 +10,13 @@ export default (sequelize, DataTypes) => {
       },
       user_id: {
         type: DataTypes.INTEGER,
-        allowNull: true,
+        allowNull: false,
+        references: {
+          model: "app_users", // table name or model name depending on config
+          key: "id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
       },
       category: {
         type: DataTypes.STRING,
@@ -54,6 +60,6 @@ export default (sequelize, DataTypes) => {
     }
   );
 
-  custom_screener_queries.sync({ alter: true });
+  // custom_screener_queries.sync({ alter: true });
   return custom_screener_queries;
 };
