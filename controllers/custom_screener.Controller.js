@@ -1,5 +1,7 @@
 import {
-  custom_screener_query_resolve,
+  custom_screener_structured_query_resolve,
+  custom_screener_natural_query_resolve,
+  custom_screener_smart_query_resolve,
   custom_screener_get_all_fields,
 } from "../services/custom_screener.Services.js";
 import {
@@ -9,13 +11,24 @@ import {
   post_admin_screens as postAdminScreensService,
   edit_user_screens as editUserScreensService,
   delete_user_screens as deleteUserScreensService,
-  // get_screen_by_id as getScreenByIdService,
 } from "../services/custom_screener_queries.Services.js";
 import prebuild_screens from "../data/custom_screener_screens_collections.json" with { type: "json" };
 
-export const query_resolve = async (req, res) => {
+export const structured_query_resolve = async (req, res) => {
   const { user_query } = req.query;
-  const response = await custom_screener_query_resolve(user_query);
+  const response = await custom_screener_structured_query_resolve(user_query);
+  return res.status(response.res_status).json(response.res);
+};
+
+export const natural_query_resolve = async (req, res) => {
+  const { user_query } = req.query;
+  const response = await custom_screener_natural_query_resolve(user_query);
+  return res.status(response.res_status).json(response.res);
+};
+
+export const smart_query_resolve = async (req, res) => {
+  const { user_query } = req.query;
+  const response = await custom_screener_smart_query_resolve(user_query);
   return res.status(response.res_status).json(response.res);
 };
 
@@ -30,17 +43,12 @@ export const get_prebuild_screens = (req, res) => {
     data: prebuild_screens,
   });
 };
+
 export const get_all_screens = async (req, res) => {
   const { user_id } = req.query;
   const result = await getAllScreensService(parseInt(user_id));
   return res.status(result.res_status).json(result.res);
 };
-
-// export const get_screen_by_id = async (req, res) => {
-//   const { id } = req.query;
-//   const result = await getScreenByIdService(parseInt(id));
-//   return res.status(result.res_status).json(result.res);
-// };
 
 export const post_user_screens = async (req, res) => {
   const {
