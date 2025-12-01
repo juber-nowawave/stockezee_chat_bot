@@ -1,6 +1,6 @@
 import moment from "moment/moment.js";
 import db from "../models/index.js";
-import { Op, where } from "sequelize";
+import { Op } from "sequelize";
 
 export const get_all_screens = async (user_id) => {
   try {
@@ -385,51 +385,3 @@ export const delete_user_screens = async (screenId, userId) => {
   }
 };
 
-// export const get_screen_by_id = async (screenId) => {
-//   try {
-//     if (!screenId) {
-//       return {
-//         res_status: 400,
-//         res: {
-//           status: 0,
-//           message: "Screen ID is required",
-//           data: null,
-//         },
-//       };
-//     }
-//     const whereClause = { id: screenId, publish: true };
-//     const screen = await db.custom_screener_queries.findOne({
-//       where: whereClause,
-//     });
-
-//     if (!screen) {
-//       return {
-//         res_status: 200,
-//         res: {
-//           status: 1,
-//           message: "Screen not found or you don't have access",
-//           data: null,
-//         },
-//       };
-//     }
-
-//     return {
-//       res_status: 200,
-//       res: {
-//         status: 1,
-//         message: "Screen fetched successfully",
-//         data: screen,
-//       },
-//     };
-//   } catch (error) {
-//     console.error("Get screen by ID error:", error);
-//     return {
-//       res_status: 500,
-//       res: {
-//         status: 0,
-//         message: "Internal server error. Please try again later.",
-//         data: null,
-//       },
-//     };
-//   }
-// };
