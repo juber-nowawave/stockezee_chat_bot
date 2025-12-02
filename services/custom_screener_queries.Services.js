@@ -102,44 +102,36 @@ export const get_user_screens = async (user_id) => {
 
 export const get_search_screens = async (search) => {
   try {
-    let whereClause = "";
+    let query = `
+      SELECT csq.id, au.user_name, csq.user_id, csq.category, csq.title, csq.description,
+      csq.backend_query, csq.frontend_query, csq.publish, csq.time, csq.created_at
+      FROM custom_screener_queries csq
+      INNER JOIN app_users au ON au.id = csq.user_id
+      WHERE csq.publish = true
+    `;
+
+    let replacements = {};
+
     if (!search || search.trim() === "") {
-      whereClause = {
-        [Op.and]: {
-          publish: true,
-          category: "user made",
-        },
-      };
+      query += ` AND csq.category = 'user made'`;
     } else {
-      whereClause = {
-        [Op.and]: [
-          { publish: true },
-          {
-            [Op.or]: [
-              { title: { [Op.iLike]: `%${search}%` } },
-              { description: { [Op.iLike]: `%${search}%` } },
-            ],
-          },
-        ],
-      };
+      query += ` AND (csq.title ILIKE :search OR csq.description ILIKE :search)`;
+      replacements.search = `%${search}%`; // <-- Wildcard applied
     }
-    const screens = await db.custom_screener_queries.findAndCountAll({
-      where: whereClause,
-      order: [
-        ["created_at", "DESC"],
-        ["time", "DESC"],
-      ],
+
+    query += ` ORDER BY csq.created_at DESC, csq.time DESC`;
+
+    const screens = await db.sequelize.query(query, {
+      replacements,
+      type: db.Sequelize.QueryTypes.SELECT,
     });
 
     return {
       res_status: 200,
       res: {
-        status: 1,
-        message:
-          screens.count > 0
-            ? "Screens fetched successfully"
-            : "No screens found",
-        data: screens.rows,
+        status: screens.length > 0 ? 1 : 0,
+        message: screens.length > 0 ? "Screens fetched successfully" : "No screens found",
+        data: screens,
       },
     };
   } catch (error) {
@@ -154,7 +146,7 @@ export const get_search_screens = async (search) => {
     };
   }
 };
-
+  
 export const post_user_screens = async (screenData) => {
   try {
     const {
