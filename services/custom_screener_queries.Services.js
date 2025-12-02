@@ -2,25 +2,23 @@ import moment from "moment/moment.js";
 import db from "../models/index.js";
 import { Op } from "sequelize";
 
-export const get_all_screens = async (user_id) => {
+export const get_prebuild_screens = async () => {
   try {
     const queries = await db.custom_screener_queries.findAll({
       where: {
-        [Op.or]: [{ user_id: user_id }, { user_id: { [Op.eq]: 0 } }],
+        user_id: 0,
+        category: { [Op.ne]: "user made" },
       },
       order: [
         ["created_at", "DESC"],
         ["time", "DESC"],
       ],
     });
-    const categorized_queries = {
-      user_query: [],
-      prebuild_query: [],
-    };
+
+    let prebuild_query = {};
     for (let query of queries) {
       const {
         id,
-        user_id: saved_user_id,
         category,
         title,
         description,
@@ -28,34 +26,21 @@ export const get_all_screens = async (user_id) => {
         frontend_query,
       } = query;
 
-      if (saved_user_id === user_id) {
-        categorized_queries.user_query.push({
-          id,
-          user_id,
-          category,
-          title,
-          description,
-          backend_query,
-          frontend_query,
-        });
-      } else {
-        categorized_queries.prebuild_query.push({
-          id,
-          user_id,
-          category,
-          title,
-          description,
-          backend_query,
-          frontend_query,
-        });
-      }
+      prebuild_query[category] ??= [];
+      prebuild_query[category].push({
+        query_id: id,
+        title,
+        description,
+        backend_query,
+        frontend_query,
+      });
     }
     return {
       res_status: 200,
       res: {
         status: 1,
         message: "Prebuild screens fetched successfully",
-        data: categorized_queries,
+        data: prebuild_query,
       },
     };
   } catch (error) {
@@ -71,31 +56,73 @@ export const get_all_screens = async (user_id) => {
   }
 };
 
+export const get_user_screens = async (user_id) => {
+  try {
+    const queries = await db.custom_screener_queries.findAll({
+      where: {
+        user_id: user_id,
+      },
+      order: [
+        ["created_at", "DESC"],
+        ["time", "DESC"],
+      ],
+    });
+
+    const user_query = [];
+    for (let query of queries) {
+      user_query.push({
+        id: query.id,
+        category: query.category,
+        title: query.title,
+        description: query.description,
+        backend_query: query.backend_query,
+        frontend_query: query.frontend_query,
+      });
+    }
+    return {
+      res_status: 200,
+      res: {
+        status: 1,
+        message: "User screens fetched successfully",
+        data: user_query,
+      },
+    };
+  } catch (error) {
+    console.error("Get User screens error:", error);
+    return {
+      res_status: 500,
+      res: {
+        status: 0,
+        message: "Internal server error. Please try again later.",
+        data: null,
+      },
+    };
+  }
+};
+
 export const get_search_screens = async (search) => {
   try {
+    let whereClause = "";
     if (!search || search.trim() === "") {
-      return {
-        res_status: 400,
-        res: {
-          status: 1,
-          message: "Provide valid search key!",
-          data: null,
+      whereClause = {
+        [Op.and]: {
+          publish: true,
+          category: "user made",
         },
       };
+    } else {
+      whereClause = {
+        [Op.and]: [
+          { publish: true },
+          {
+            [Op.or]: [
+              { title: { [Op.iLike]: `%${search}%` } },
+              { description: { [Op.iLike]: `%${search}%` } },
+            ],
+          },
+        ],
+      };
     }
-
-    const whereClause = {
-      [Op.and]: [
-        { publish: true },
-        {
-          [Op.or]: [
-            { title: { [Op.iLike]: `%${search}%` } },
-            { description: { [Op.iLike]: `%${search}%` } },
-          ]
-        }
-      ]
-    };
-
     const screens = await db.custom_screener_queries.findAndCountAll({
       where: whereClause,
       order: [
@@ -384,4 +411,3 @@ export const delete_user_screens = async (screenId, userId) => {
     };
   }
 };
-
