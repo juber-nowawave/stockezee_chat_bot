@@ -77,6 +77,7 @@ export const get_user_screens = async (user_id) => {
         description: query.description,
         backend_query: query.backend_query,
         frontend_query: query.frontend_query,
+        publish: query.publish,
       });
     }
     return {
