@@ -130,6 +130,7 @@ const VALID_FIELDS = [
 const VALID_OPERATORS = [">", "<", "=", ">=", "<=", "!="];
 
 const get_stocks_by_query = async (selectFields = null, whereClause = null) => {
+    
   // let sql = `SELECT symbol_name, market_cap, current_price, high, low, stock_p_e, book_value, dividend_yield_per,
   //  roce_per, roe_per, face_value, opm_per, qtr_sales_var_per, price_to_earning, qtr_profit_var_per, price_to_book_value,
   //  return_on_equity_per, debt_to_equity, return_on_assets_per, avg_trading_vol_10d, price_ret_daily_13w, price_ret_daily_26w,
@@ -148,11 +149,35 @@ const get_stocks_by_query = async (selectFields = null, whereClause = null) => {
   //  tang_book_val_share_ann, tang_book_val_share_qtr, tbv_cagr_5y, total_debt_eq_qtr, price_ret_daily_ytd, ev_fcf_ann, ev_fcf_ttm
   //  FROM nse_company_details`;
 
-  let sql = `
-    SELECT symbol_name, market_cap, current_price, high, low, stock_p_e, book_value, 
-     dividend_yield_per, roce_per, roe_per, face_value, net_prof_marg_ann
-    FROM nse_company_details
-  `;
+  const defaultFields = [
+    "symbol_name",
+    "market_cap",
+    "current_price",
+    "high",
+    "low",
+    "stock_p_e",
+    "book_value",
+    "dividend_yield_per",
+    "roce_per",
+    "roe_per",
+    "face_value",
+    "net_prof_marg_ann",
+  ];
+
+  let fieldsToSelect = [...defaultFields];
+
+  if (selectFields && Array.isArray(selectFields)) {
+    selectFields.forEach((field) => {
+      // Avoid duplicates
+      if (!fieldsToSelect.includes(field)) {
+        fieldsToSelect.push(field);
+      }
+    });
+  }
+
+  const sqlSelect = fieldsToSelect.join(", ");
+
+  let sql = `SELECT ${sqlSelect} FROM nse_company_details`;
 
   if (whereClause) {
     sql += ` WHERE ${whereClause}`;
