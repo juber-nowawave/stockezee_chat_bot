@@ -1,8 +1,8 @@
 import { stock_mind_map_generate } from "../utils/stock_mind_map_generate.js";
 
 export const stock_mind_map = async (req, res) => {
+  let { symbol_name } = req.query;
   try {
-    let { symbol_name } = req.query;
     symbol_name = symbol_name.trim().toUpperCase();
 
     const mind_map = await stock_mind_map_generate(symbol_name);
