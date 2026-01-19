@@ -156,52 +156,45 @@ export const stock_analysis_ai = async (req, res) => {
     const gemini_api_key = process.env.MAIN_GEMINI_KEY;
 
     const model = getModelInstance(gemini_api_key);
-
-    // --- SINGLE STEP: SQL + TEMPLATE GENERATION ---
-    // Optimization: Minimize context. Remove sample rows, only keep schema.
-    const simplifiedSchema = Object.keys(trainingData).map(tableName => {
-      const table = trainingData[tableName];
-      return `TABLE: ${tableName}\nDESCRIPTION: ${table.description}\nCOLUMNS: ${table.columns.join(", ")}`;
-    }).join("\n\n");
-
     const prompt = `
-    You are a Senior Equity Analyst & Financial Advisor.
-    
-    DATABASE SCHEMA:
-    ${simplifiedSchema}
-    
-    TASK:
-    Generate a PostgreSQL SELECT query AND a high-quality, professional explanation template for the user's request: "${userQuery}" about "${symbol}".
-    
-    RULES:
-    1. Output a JSON object with keys: "sql" and "explanation".
-    2. "sql":
-       - Valid PostgreSQL SELECT statement.
-       - Filter by 'symbol_name' = '${symbol}'.
-       - Select ONLY specific, relevant columns.
-       - NO UNION.
-       - USE EXACT COLUMN NAMES from the schema (e.g., 'weakness' not 'weaknesses'). Check singular/plural carefully.
-    3. "explanation":
-       - A professional, "advisor-style" template string using **Markdown formatting**.
-       - Use column names in double curly braces as placeholders, e.g., "{{pe}}".
-       - **Structure**:
-         - Use **Bold** for key figures (e.g., "**{{current_price}}**").
-         - Use Bullet Points for lists of strengths/weaknesses.
-         - Provide **Context**: Explain what the metrics mean (e.g., "A P/E of **{{stock_p_e}}** suggests...").
-       - Do NOT invent data. Use ONLY the columns you selected in "sql".
-       - If asking for "financial health" or "analysis", include sections like **Strengths**, **Weaknesses**, and **Verdict**.
-    4. If conversational/invalid, set "sql": null.
+You are a financial data assistant that generates PostgreSQL queries AND crafts natural, conversational explanations based on the query results.
 
-    INPUT QUERY: ${userQuery}
-    SYMBOL: ${symbol}
-    
-    RESPONSE JSON FORMAT:
-    {
-      "sql": "SELECT ...",
-      "explanation": "Markdown template string..."
-    }
-    `;
+DATABASE STRUCTURE:
+${JSON.stringify(trainingData, null, 2)}
 
+TASK:
+Given a user’s query, do BOTH in one step:
+1. Identify the single most relevant table from the schema above.
+2. Do NOT use UNION. Prefer selecting from just one logical table.
+3. Write a valid PostgreSQL SELECT query using the correct column names.
+4. Always include symbol_name in the WHERE clause.
+5. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
+6. The explanation should be conversational, like a financial advisor talking to a client.
+7. If the user greets you formally with phrases like "Hey", "Hello", etc., you should also respond formally with replies such as "Hey, how can I help you?" or "Hello, how can I assist you today", etc. user query such as "how are you" etc so you have to response like "I am fine what about you" etc and in this case do'nt generate sql query and Set the "sql" key in the JSON output to null
+8. If the user enters an inappropriate or invalid query — such as random symbols ($@$%#@#@#@), etc — respond politely with a message like: "Sorry, I couldn’t understand your query. Please enter a valid stock query." Always guide the user back to providing a meaningful financial query.
+
+FORMATTING RULES:
+- Output only a JSON object with "sql" and "explanation" keys.
+- Do not include HTML tags, markdown, line breaks like \n\n, \\n, or extra symbols.
+- For ALL values from the database (not just prices), display the **actual column names** inside double curly braces, e.g., {{close}}, {{high}}, {{promoters}}, {{fiis}}, {{diis}}, {{government}}, {{public}} , do'nt add curly braces {{}} in sql query.
+- Never use generic placeholders like X, Y, Z, A, B. Always use the real column name from the table.
+- For company info, summarize naturally in full sentences.
+- Keep explanations concise but informative — not too short.
+
+STYLE GUIDELINES FOR EXPLANATION:
+- For price data: “KPIGREEN’s latest closing price is ₹985.50”
+- For company info: “KPIGREEN is a renewable energy company focused on solar power solutions…”
+- Avoid mentioning databases, SQL, or technical terms.
+- Speak in an advisor tone — clear, confident, and client-focused.
+
+USER QUERY: "${contextualQuery}"
+
+Return JSON in this format:
+{
+  "sql": "PostgreSQL query here",
+  "explanation": "Natural, advisor-style explanation using the fetched data"
+}
+`;
 
     const response = await Promise.race([
       model.invoke(prompt),
