@@ -33,7 +33,7 @@ export const handle_stock_analysis_query = async (req, res) => {
       },
     });
 
-    const max_limit = 100;
+    const max_limit = 10;
     if (today_count >= max_limit) {
       return res.status(200).json({
         status: 1,
