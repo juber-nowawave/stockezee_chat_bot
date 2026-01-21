@@ -21,7 +21,7 @@ const tableDescriptions = {
   nse_stock_profit_loss:
     "This table contains profit and loss (income statement) data for NSE stocks, including key metrics like revenue, net income, EBIT, expenses, and tax provisions.",
   nse_stock_cash_flow:
-    "This table contains cash flow statement data for NSE stocks, including operating, investing, and financing cash flows, capex, free cash flow, and changes in working capital.",
+    "This table contains cash flow statement data for NSE stocks, including operating, investing, financing cash flows, capex, free cash flow, and changes in working capital.",
   nse_stock_balance_sheet:
     "This table contains balance sheet data for NSE stocks, including assets (cash, receivables, property), liabilities (debt, payables), equity, and totals like total assets and shareholders' equity.",
   nse_eq_stock_candle_pettern_per_week:
@@ -32,19 +32,20 @@ const tableDescriptions = {
 
 let cachedTrainingData = null;
 
+// Conversation history for screener
+const screenerHistory = new Map();
+
 const getTrainingData = async () => {
   if (cachedTrainingData) return cachedTrainingData;
 
   const tables = Object.keys(tableDescriptions);
   const trainingData = {};
 
-  // Parallel execution for faster data fetching
   await Promise.all(
     tables.map(async (table_name) => {
       try {
         let columns;
 
-        // Handle vertical format tables
         if (
           [
             "nse_stock_cash_flow",
@@ -52,13 +53,11 @@ const getTrainingData = async () => {
             "nse_stock_profit_loss",
           ].includes(table_name)
         ) {
-          // Get distinct item names as columns for vertical format tables
           [columns] = await db.sequelize.query(
             `SELECT DISTINCT item_name as column_name FROM ${table_name} LIMIT 50`,
             { raw: true }
           );
         } else {
-          // Handle regular horizontal format tables
           [columns] = await db.sequelize.query(
             `SELECT column_name FROM information_schema.columns WHERE table_name = '${table_name}' ORDER BY ordinal_position`,
             { raw: true }
@@ -87,10 +86,299 @@ const getTrainingData = async () => {
   return trainingData;
 };
 
+// Get conversation history
+const getScreenerHistory = (userId) => {
+  if (!screenerHistory.has(userId)) {
+    screenerHistory.set(userId, []);
+  }
+  return screenerHistory.get(userId);
+};
+
+// Add to history
+const addToScreenerHistory = (userId, role, content) => {
+  const history = getScreenerHistory(userId);
+  history.push({ role, content, timestamp: Date.now() });
+  
+  if (history.length > 8) {
+    history.shift();
+  }
+  
+  screenerHistory.set(userId, history);
+};
+
+// Clear old histories
+const clearOldScreenerHistories = () => {
+  const ONE_HOUR = 60 * 60 * 1000;
+  const now = Date.now();
+  
+  for (const [key, history] of screenerHistory.entries()) {
+    if (history.length > 0) {
+      const lastMessage = history[history.length - 1];
+      if (now - lastMessage.timestamp > ONE_HOUR) {
+        screenerHistory.delete(key);
+      }
+    }
+  }
+};
+
+// Generate follow-up suggestions for screener
+const generateScreenerSuggestions = (userQuery, results) => {
+  const suggestions = [];
+  const queryLower = userQuery.toLowerCase();
+  
+  if (queryLower.includes('top') || queryLower.includes('best')) {
+    suggestions.push(
+      "Show me stocks with highest volume",
+      "Which stocks are most volatile today?",
+      "List stocks with best PE ratios"
+    );
+  } else if (queryLower.includes('volume') || queryLower.includes('traded')) {
+    suggestions.push(
+      "Show me top gainers today",
+      "Which stocks crossed ₹1000 today?",
+      "List stocks with market cap above 10000 crores"
+    );
+  } else if (queryLower.includes('sector') || queryLower.includes('industry')) {
+    suggestions.push(
+      "Show me banking sector stocks",
+      "List IT sector top performers",
+      "Compare pharma sector stocks"
+    );
+  } else if (queryLower.includes('price') || queryLower.includes('above') || queryLower.includes('below')) {
+    suggestions.push(
+      "Show me stocks below ₹100",
+      "Which stocks doubled in the last month?",
+      "List penny stocks with high volume"
+    );
+  } else {
+    suggestions.push(
+      "Show me top 10 stocks by market cap",
+      "Which stocks are near 52-week high?",
+      "List stocks with PE ratio below 15"
+    );
+  }
+  
+  return suggestions.slice(0, 3);
+};
+
+// Get market context
+const getMarketContext = () => {
+  const currentHour = moment().tz("Asia/Kolkata").hour();
+  const isMarketHours = currentHour >= 9 && currentHour < 16;
+  const day = moment().tz("Asia/Kolkata").format("dddd");
+  const isWeekend = day === "Saturday" || day === "Sunday";
+  
+  return {
+    isMarketOpen: isMarketHours && !isWeekend,
+    marketSession: isMarketHours && !isWeekend ? "during live trading" : "after market close",
+    marketDate: moment().tz("Asia/Kolkata").format("MMMM D, YYYY"),
+    dayOfWeek: day
+  };
+};
+
+// Format number with Indian system
+const formatNumber = (value, key = '') => {
+  if (value === null || value === undefined) return 'N/A';
+  
+  if (typeof value === 'number') {
+    const keyLower = key.toLowerCase();
+    
+    if (keyLower.includes('price') || keyLower.includes('close') || 
+        keyLower.includes('high') || keyLower.includes('low') ||
+        keyLower.includes('open')) {
+      return '₹' + value.toFixed(2);
+    } else if (keyLower.includes('percent') || keyLower.includes('change') ||
+               keyLower.includes('margin') || keyLower.includes('ratio')) {
+      return value.toFixed(2) + '%';
+    } else if (value > 10000000) {
+      return (value / 10000000).toFixed(2) + ' Cr';
+    } else if (value > 100000) {
+      return (value / 100000).toFixed(2) + ' L';
+    } else {
+      return value.toLocaleString('en-IN');
+    }
+  } else if (value instanceof Date) {
+    return moment(value).format('MMM D, YYYY');
+  }
+  
+  return value;
+};
+
+// Generate enhanced HTML response
+const generateEnhancedHTML = async (results, userQuery, model) => {
+  const marketContext = getMarketContext();
+  
+  const prompt = `
+You are an expert financial analyst creating insightful stock market reports.
+
+MARKET CONTEXT:
+- Date: ${marketContext.marketDate} (${marketContext.dayOfWeek})
+- Market Status: ${marketContext.isMarketOpen ? "LIVE TRADING" : "CLOSED"}
+- Session: ${marketContext.marketSession}
+
+USER QUERY: "${userQuery}"
+
+DATA RECEIVED:
+${JSON.stringify(results, null, 2)}
+
+TASK:
+Create a **professional, modern HTML report** with the following structure:
+
+1. **Executive Summary Section**
+   - <h2> with an engaging title that captures the key insight
+   - 2-3 <p> paragraphs providing:
+     * Context about the data (what the user asked for)
+     * Key highlights and interesting patterns
+     * Market implications or observations
+   - Use conversational, advisor-like tone
+
+2. **Data Table Section**
+   - Clean, professional HTML <table> with ALL data from the results
+   - Column headers should be human-readable (not snake_case)
+   - Format numbers properly:
+     * Currency: ₹2,450.50
+     * Percentages: 2.45%
+     * Large numbers: 1,234.56 Cr or 45.67 L
+     * Volume: 1.25 Cr shares
+   - Highlight noteworthy values (top performers, unusual patterns)
+   - Add a row number/rank column if it's a ranking query
+
+3. **Insights & Analysis Section**
+   - <h3> heading: "Key Insights"
+   - Bullet points (<ul>) highlighting:
+     * Top performer and their metrics
+     * Notable patterns or trends
+     * Risk factors or opportunities
+     * Comparative analysis if applicable
+
+4. **Professional Touches**
+   - Use semantic HTML (proper headings hierarchy)
+   - Keep it clean and scannable
+   - No CSS/inline styles - just structure
+   - No markdown, no code blocks, no backticks
+   - Ready for direct HTML rendering
+
+TONE & STYLE:
+- Professional yet accessible
+- Data-driven but not dry
+- Insightful, not just descriptive
+- Use active voice and engaging language
+
+EXAMPLE STRUCTURE:
+
+<h2>🔥 Top 10 High-Volume Stocks Trading Above ₹1,000</h2>
+
+<p>Based on today's market activity (${marketContext.marketDate}), I've identified the most actively traded stocks in the premium segment. These stocks are seeing significant investor interest ${marketContext.marketSession}.</p>
+
+<p>The data reveals strong institutional participation, with trading volumes indicating robust market confidence. Let's break down the top performers:</p>
+
+<table border="1" cellpadding="8" cellspacing="0">
+  <thead>
+    <tr>
+      <th>Rank</th>
+      <th>Stock Symbol</th>
+      <th>Current Price</th>
+      <th>Day High</th>
+      <th>Day Low</th>
+      <th>Volume</th>
+      <th>Change %</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- Data rows here -->
+  </tbody>
+</table>
+
+<h3>📊 Key Insights</h3>
+<ul>
+  <li><strong>Market Leader:</strong> [Symbol] dominates with [metric], indicating [insight]</li>
+  <li><strong>Volume Surge:</strong> [Observation about trading volumes]</li>
+  <li><strong>Price Action:</strong> [Analysis of price movements]</li>
+  <li><strong>Opportunity:</strong> [Forward-looking insight]</li>
+</ul>
+
+<p>This data suggests [overall market interpretation]. Investors might want to [actionable insight or consideration].</p>
+
+Generate the complete HTML now:
+`;
+
+  const response = await Promise.race([
+    model.invoke(prompt),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("HTML generation timeout")), 30000)
+    ),
+  ]);
+
+  return response?.content
+    ?.trim()
+    ?.replace(/^```html/i, "")
+    ?.replace(/^```/, "")
+    ?.replace(/```$/, "")
+    ?.trim();
+};
+
+// Generate single stock HTML
+const generateSingleStockHTML = async (result, userQuery, model) => {
+  const marketContext = getMarketContext();
+  
+  const prompt = `
+You are a financial advisor providing personalized stock insights.
+
+MARKET CONTEXT:
+- Date: ${marketContext.marketDate}
+- Market: ${marketContext.isMarketOpen ? "OPEN" : "CLOSED"}
+
+USER QUERY: "${userQuery}"
+
+STOCK DATA:
+${JSON.stringify(result, null, 2)}
+
+TASK:
+Create engaging HTML (no CSS) with:
+
+1. <h2> with stock symbol and compelling title
+2. 2-3 <p> paragraphs with:
+   - Current status and key metrics
+   - Context and analysis
+   - What this means for investors
+
+3. <div> with key metrics in a clean layout (use simple formatting)
+
+4. Brief outlook or consideration
+
+STYLE:
+- Conversational and confident
+- Focus on insights, not just data
+- Professional advisor tone
+- No markdown, no CSS, just HTML
+
+Example:
+<h2>📈 RELIANCE - Strong Performance in Energy Sector</h2>
+<p>As of ${marketContext.marketSession}, Reliance Industries is trading at ₹[price]...</p>
+
+Generate HTML now:
+`;
+
+  const response = await Promise.race([
+    model.invoke(prompt),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("HTML generation timeout")), 20000)
+    ),
+  ]);
+
+  return response?.content
+    ?.trim()
+    ?.replace(/^```html/i, "")
+    ?.replace(/^```/, "")
+    ?.replace(/```$/, "")
+    ?.trim();
+};
+
 export const stock_screener_ai = async (req, res) => {
   let { userQuery, userid, remaining_limit, max_limit } = req.body;
   const current_date = moment().tz("Asia/kolkata").format("YYYY-MM-DD");
   const current_time = moment().tz("Asia/kolkata").format("HH:mm:ss");
+  
   try {
     if (!userQuery) {
       return res.status(400).json({
@@ -100,60 +388,118 @@ export const stock_screener_ai = async (req, res) => {
       });
     }
 
+    // Clean old histories
+    if (Math.random() < 0.1) {
+      clearOldScreenerHistories();
+    }
+
     let query_status = "success";
-    const contextualQuery = userQuery;
     const trainingData = await getTrainingData();
     const gemini_api_key = process.env.MAIN_GEMINI_KEY;
     const model = getModelInstance(gemini_api_key);
 
+    // Get conversation history
+    const history = getScreenerHistory(userid);
+    const conversationContext = history.length > 0 
+      ? `\n\nPREVIOUS CONVERSATION:\n${history.map(h => `${h.role}: ${h.content}`).join('\n')}\n`
+      : '';
+
+    // Get market context
+    const marketContext = getMarketContext();
+
     const prompt = `
-You are a financial data assistant that generates PostgreSQL queries AND crafts natural, conversational explanations based on the query results.
+You are an expert stock market analyst and financial advisor specializing in Indian equity markets. You help investors discover and analyze stocks using sophisticated screening criteria.
+
+CURRENT MARKET CONTEXT:
+- Date: ${marketContext.marketDate} (${marketContext.dayOfWeek})
+- Market Status: ${marketContext.isMarketOpen ? "LIVE TRADING SESSION" : "MARKET CLOSED"}
+- Trading Session: ${marketContext.marketSession}
 
 DATABASE STRUCTURE:
 ${JSON.stringify(trainingData, null, 2)}
 
-TASK:
-Given a user’s query, do BOTH in one step:
-1. Determine if the query is STOCK-SPECIFIC (about a single symbol/company) or MARKET-LEVEL (about multiple stocks or rankings).
-2. Identify the most relevant table from the schema above.
-3. Do NOT use UNION. Prefer selecting from just one logical table.
-4. Write a valid PostgreSQL SELECT query using the correct column names.
-5. For STOCK-SPECIFIC queries:
-   - Always include symbol or symbol_name in the WHERE clause.
-6. For MARKET-LEVEL queries:
-   - Handle filters (e.g., high > 1000), rankings (e.g., top 5 by close), or comparisons (e.g., biggest gainers).
-7. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
-8. The explanation should be conversational, like a financial advisor talking to a client.
-9. If the user greets you formally with phrases like "Hey", "Hello", etc., you should also respond formally with replies such as "Hey, how can I help you?" or "Hello, how can I assist you today" etc
-10. If the user enters an inappropriate or invalid query — such as random symbols ($@$%#@#@#@), @#@@#@ @#@@##, empty input, meaningless text, excessively long gibberish, or queries that don’t match any valid stock, company, or filter — respond politely with a message like: "Sorry, I couldn’t understand your query. Please enter a valid stock query." Always guide the user back to providing a meaningful financial query.
-11. If the user only provides a single unclear word (e.g., “profit”, “future”, etc.) or just a stock name like “TCS”, “Reliance” etc without specifying what information they want, respond politely with: “Please provide a more meaningful query so I can assist you better.” In this case:
-- Do not generate any SQL query.
-- Set the "sql" key in the JSON output to null.
+${conversationContext}
 
-FORMATTING RULES:
-- Output only a JSON object with "sql" and "explanation" keys.
-- Do not include HTML tags, markdown, or escape characters like \\n or \\t.
-- For prices, display column names in double curly braces, e.g., {{close}}, {{high}}, {{low}}, {{open}}.
-- For company info, summarize naturally in full sentences.
-- if user asked for large data greater than 20 so Maximum data limit should be 20 , add limit in sql query
-- Always handle division by zero using NULLIF in the denominator (e.g., col1 / NULLIF(col2, 0)).
-- Keep explanations concise but insightful.
+CORE RESPONSIBILITIES:
 
-AI Output should be:
-[[{symbol_name}: ₹{current_price}]]
-STYLE GUIDELINES FOR EXPLANATION:
-- STOCK-SPECIFIC: “KPIGREEN’s latest closing price is ₹{{close}}, with today’s high at ₹{{high}} and low at ₹{{low}}.”
-- MARKET-LEVEL: “Here are the top 5 stocks by closing price: RELIANCE at ₹{{close}}, TCS at ₹{{close}}, …” 
-- Avoid technical jargon like ‘query’ or ‘SQL’.
-- Speak in a confident, client-focused advisor tone.
+1. **Query Analysis & Classification:**
+   - Determine if query is STOCK-SPECIFIC (single company) or MARKET-LEVEL (multiple stocks/rankings)
+   - Identify user intent: screening, comparison, ranking, filtering, or analysis
+   - Consider conversation history for follow-up questions
+   - Detect screening criteria: price ranges, volume, ratios, sectors, patterns
 
-USER QUERY: "${contextualQuery}"
+2. **SQL Generation Rules:**
+   - Select the most relevant table from schema
+   - NO UNION operations - use single table queries
+   - For STOCK-SPECIFIC: Always filter by symbol_name or symbol
+   - For MARKET-LEVEL: Support rankings, filters, comparisons
+   - Apply LIMIT 20 for multi-row results (hard limit)
+   - Always use NULLIF for division to prevent errors: col1 / NULLIF(col2, 0)
+   - Order results meaningfully (DESC for rankings, ASC for ascending)
+   - Include relevant columns for analysis
 
-Return JSON in this format:
+3. **Smart Query Handling:**
+   - For vague queries ("TCS", "profit", "good stocks"): Request clarification, set sql: null
+   - For greetings: Respond warmly, set sql: null
+   - For invalid input (gibberish, symbols): Guide back politely, set sql: null
+   - For clear queries: Generate accurate SQL
+
+4. **Conversational Intelligence:**
+   - Reference previous conversation naturally
+   - Build on earlier context
+   - Understand implied follow-ups
+   - Maintain professional yet friendly tone
+
+QUERY EXAMPLES & EXPECTED BEHAVIOR:
+
+**Market-Level Queries:**
+- "Show me top 10 stocks by volume" → Rank by volume DESC LIMIT 10
+- "Stocks above ₹1000" → WHERE close > 1000
+- "Best performers today" → ORDER BY change_percent DESC
+- "Banking sector stocks" → Filter by sector
+- "Stocks with PE below 15" → WHERE pe_ratio < 15
+
+**Stock-Specific Queries:**
+- "Tell me about RELIANCE" → WHERE symbol_name = 'RELIANCE'
+- "TCS price" → WHERE symbol_name = 'TCS', select price data
+- "INFY financials" → WHERE symbol_name = 'INFY', financial metrics
+
+**Vague Queries (Require Clarification):**
+- "TCS" → "Would you like to know TCS's current price, company details, or financial performance?"
+- "profit" → "Are you looking for profitable stocks, or specific company's profit data?"
+- "good stocks" → "What criteria define 'good' for you? High returns, low PE, high dividend?"
+
+FORMATTING REQUIREMENTS:
+
+Output JSON with three keys:
 {
-  "sql": "PostgreSQL query here",
-  "explanation": "Natural, advisor-style explanation using the fetched data"
+  "sql": "PostgreSQL query or null",
+  "explanation": "Natural explanation (used for single stock or no-SQL responses)",
+  "suggestions": ["Follow-up 1?", "Follow-up 2?", "Follow-up 3?"]
 }
+
+- NO markdown, HTML tags, escape characters (\\n, \\t)
+- For explanations: Use {{column_name}} placeholders
+- Keep explanations conversational and insightful
+- Include 3 relevant follow-up suggestions
+
+TONE & STYLE:
+
+- **Professional Advisor:** Confident, knowledgeable, trustworthy
+- **Conversational:** Natural language, not robotic
+- **Insightful:** Context and implications, not just numbers
+- **Engaging:** Active voice, varied sentence structure
+- **Client-Focused:** Their success is your priority
+
+Examples:
+- Good: "I've identified the top 10 high-volume stocks for you. These are seeing significant institutional interest today..."
+- Avoid: "Here is the query result showing stocks."
+
+USER QUERY: "${userQuery}"
+
+Analyze the query, generate appropriate SQL (or null), craft an insightful explanation, and suggest relevant follow-ups.
+
+Return JSON now:
 `;
 
     const response = await Promise.race([
@@ -185,8 +531,17 @@ Return JSON in this format:
     }
 
     let finalResponse = parsedResponse.explanation;
+    let suggestions = parsedResponse.suggestions || [];
 
+    // Handle non-SQL responses (greetings, clarifications)
     if (!parsedResponse.sql && finalResponse) {
+      addToScreenerHistory(userid, 'user', userQuery);
+      addToScreenerHistory(userid, 'assistant', finalResponse);
+
+      if (suggestions.length === 0) {
+        suggestions = generateScreenerSuggestions(userQuery, null);
+      }
+
       const history_record_data = {
         user_id: userid,
         bot_type: "stock screener",
@@ -204,8 +559,9 @@ Return JSON in this format:
         message: "Success",
         data: {
           msg: finalResponse,
+          suggestions,
           max_limit,
-          remaining_limit: remaining_limit - 1,
+          remaining_limit,
         },
       });
     }
@@ -215,6 +571,7 @@ Return JSON in this format:
       throw new Error("No SQL query generated");
     }
 
+    // Execute SQL query
     try {
       const [results] = await Promise.race([
         db.sequelize.query(parsedResponse.sql),
@@ -224,85 +581,72 @@ Return JSON in this format:
       ]);
 
       if (results.length > 1) {
-        const prompt2 = `
-You are a financial data assistant.
-You are given an array of JSON objects representing stock or financial data:
-${JSON.stringify(results, null, 2)}
-
-TASK:
-Generate a **complete HTML block without CSS** containing:
-1. A <h2> heading summarizing the data type and context.
-2. One or more <p> paragraphs providing an enhanced, conversational explanation of the data.
-3. An HTML <table> showing all rows from the array above.
-   - Include column headers from the object keys.
-   - Format numbers with commas.
-   - If a value represents currency, prefix it with ₹.
-   - Make the table clean and minimal with borders, padding, and alternating row colors.
-4. The final HTML should be ready for direct embedding (no Markdown, no JSON, no backticks).
-
-Example structure:
-<h2>Top 5 Stocks with Price Above ₹1,000</h2>
-<p>Here’s a list of stocks currently trading well above the ₹1,000 mark...</p>
-<table>...</table>
-<p>From the above table, we can see that...</p>
-
-NOTE: HTML should be without CSS or any style
-`;
-
-        const response2 = await Promise.race([
-          model.invoke(prompt2),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("AI request timeout")), 200000)
-          ),
-        ]);
-        const cleanedHTML = response2?.content
-          ?.trim()
-          ?.replace(/^```html/i, "")
-          ?.replace(/^```/, "")
-          ?.replace(/```$/, "")
-          ?.trim();
-
-        if (!cleanedHTML) {
-          throw new Error("Empty AI HTML response");
+        // Multiple results - generate enhanced HTML table
+        finalResponse = await generateEnhancedHTML(results, userQuery, model);
+        
+        if (!finalResponse) {
+          throw new Error("Failed to generate HTML response");
         }
 
-        finalResponse = cleanedHTML;
       } else if (results.length === 1) {
-        const result = results[0];
-        const prompt2 = `Generate HTML (no CSS) for this stock: ${JSON.stringify(
-          result
-        )}
-Include <h2> heading and <p> explanation. No table needed. No markdown/backticks.`;
-
-        const response2 = await Promise.race([
-          model.invoke(prompt2),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("AI request timeout")), 15000)
-          ),
-        ]);
-
-        const cleanedHTML = response2?.content
-          ?.trim()
-          ?.replace(/^```html/i, "")
-          ?.replace(/^```/, "")
-          ?.replace(/```$/, "")
-          ?.trim();
-
-        if (!cleanedHTML) {
-          throw new Error("Empty AI HTML response");
+        // Single result - generate single stock HTML
+        finalResponse = await generateSingleStockHTML(results[0], userQuery, model);
+        
+        if (!finalResponse) {
+          throw new Error("Failed to generate HTML response");
         }
 
-        finalResponse = cleanedHTML;
       } else {
+        // No results
         query_status = "failed";
-        finalResponse = `<p>I couldn't find any data. The symbol might not exist in our database or there might be no recent data available.</p>`;
+        finalResponse = `
+          <div style="padding: 20px; text-align: center;">
+            <h2>No Results Found</h2>
+            <p>I couldn't find any stocks matching your criteria. This could be because:</p>
+            <ul style="text-align: left; display: inline-block;">
+              <li>The stock symbol doesn't exist in our database</li>
+              <li>No stocks currently meet the specified filters</li>
+              <li>The data might not be available for today</li>
+            </ul>
+            <p>Try modifying your search criteria or ask me for suggestions!</p>
+          </div>
+        `;
       }
+
+      // Generate suggestions if not provided
+      if (suggestions.length === 0) {
+        suggestions = generateScreenerSuggestions(userQuery, results);
+      }
+
+      // Add to conversation history
+      addToScreenerHistory(userid, 'user', userQuery);
+      addToScreenerHistory(userid, 'assistant', 'Generated stock analysis');
+
     } catch (queryError) {
       query_status = "failed";
       console.error("Database query error:", queryError);
-      finalResponse = `Unable to fetch data. Please try again`;
+      
+      finalResponse = `
+        <div style="padding: 20px;">
+          <h2>⚠️ Query Error</h2>
+          <p>I encountered an issue while fetching the data. This might be due to:</p>
+          <ul>
+            <li>Invalid stock symbol or filter criteria</li>
+            <li>Temporary database connectivity issue</li>
+            <li>Complex query that needs refinement</li>
+          </ul>
+          <p>Please try rephrasing your question or use one of the suggestions below.</p>
+        </div>
+      `;
+      
+      suggestions = [
+        "Show me top 10 stocks by market cap",
+        "Which stocks are above ₹500?",
+        "List high-volume stocks today"
+      ];
     }
 
+    // Store query history
     const history_record_data = {
       user_id: userid,
       bot_type: "stock screener",
@@ -315,21 +659,54 @@ Include <h2> heading and <p> explanation. No table needed. No markdown/backticks
 
     remaining_limit =
       query_status === "success" ? remaining_limit - 1 : remaining_limit;
+      
     res.status(200).json({
       status: 1,
       message: "Success",
       data: {
         msg: finalResponse,
+        suggestions,
         max_limit,
         remaining_limit,
+        conversationId: userid
       },
     });
+    
   } catch (error) {
-    let errorMsg =
-      "I'm having trouble processing your request right now. Please try again.";
+    console.error("Stock screener error:", error);
+    
+    let errorMsg = `
+      <div style="padding: 20px;">
+        <h2>⚠️ Processing Error</h2>
+        <p>I'm having trouble processing your request right now. Please try again in a moment.</p>
+      </div>
+    `;
+    
+    let suggestions = [
+      "Show me top stocks by volume",
+      "Which stocks crossed ₹1000?",
+      "List IT sector stocks"
+    ];
+
     if (error.message.includes("timeout")) {
-      errorMsg =
-        "The request is taking longer than expected. Please try with a simpler query.";
+      errorMsg = `
+        <div style="padding: 20px;">
+          <h2>⏱️ Request Timeout</h2>
+          <p>Your request is taking longer than expected. Please try:</p>
+          <ul>
+            <li>Asking a simpler question</li>
+            <li>Reducing the number of stocks requested</li>
+            <li>Breaking complex queries into smaller parts</li>
+          </ul>
+        </div>
+      `;
+    } else if (error.message.includes("Invalid JSON")) {
+      errorMsg = `
+        <div style="padding: 20px;">
+          <h2>🔧 Technical Issue</h2>
+          <p>I encountered a technical issue while processing your request. Please rephrase your question and try again.</p>
+        </div>
+      `;
     }
 
     const history_record_data = {
@@ -347,9 +724,29 @@ Include <h2> heading and <p> explanation. No table needed. No markdown/backticks
       message: "Processing error",
       data: {
         msg: errorMsg,
+        suggestions,
         max_limit,
         remaining_limit,
       },
     });
   }
+};
+
+// Clear conversation endpoint
+export const clearScreenerConversation = async (req, res) => {
+  const { userid } = req.body;
+  
+  if (!userid) {
+    return res.status(400).json({
+      status: 0,
+      message: "Missing user ID"
+    });
+  }
+  
+  screenerHistory.delete(userid);
+  
+  res.status(200).json({
+    status: 1,
+    message: "Screener conversation history cleared"
+  });
 };
