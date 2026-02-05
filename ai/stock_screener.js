@@ -438,6 +438,13 @@ CORE RESPONSIBILITIES:
    - Order results meaningfully (DESC for rankings, ASC for ascending)
    - Include relevant columns for analysis
 
+   **MARKET CAP DEFINITIONS (Crucial):**
+   - **Large Cap:** \`market_cap >= 20000\`
+   - **Mid Cap:** \`market_cap >= 5000 AND market_cap < 20000\`
+   - **Small Cap:** \`market_cap >= 1000 AND market_cap < 5000\`
+   - **Micro Cap:** \`market_cap < 1000\`
+   *(Use these conditions strictly when user asks for specific market cap categories)*
+
 3. **Smart Query Handling:**
    - For vague queries ("TCS", "profit", "good stocks"): Request clarification, set sql: null
    - For greetings: Respond warmly, set sql: null
