@@ -305,7 +305,7 @@ Generate the complete HTML now:
   const response = await Promise.race([
     model.invoke(prompt),
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("HTML generation timeout")), 30000)
+      setTimeout(() => reject(new Error("HTML generation timeout")), 60000)
     ),
   ]);
 
@@ -505,7 +505,7 @@ Return JSON now:
     const response = await Promise.race([
       model.invoke(prompt),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("AI request timeout")), 30000)
+        setTimeout(() => reject(new Error("AI request timeout")), 60000)
       ),
     ]);
 
@@ -571,15 +571,102 @@ Return JSON now:
       throw new Error("No SQL query generated");
     }
 
-    // Execute SQL query
-    try {
-      const [results] = await Promise.race([
-        db.sequelize.query(parsedResponse.sql),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Database timeout")), 20000)
-        ),
-      ]);
+    // Execute SQL query with retry logic
+    let results;
+    let retries = 0;
+    const MAX_RETRIES = 2;
+    let currentSql = parsedResponse.sql;
+    let executionSuccess = false;
 
+    while (retries <= MAX_RETRIES && !executionSuccess) {
+      try {
+        [results] = await Promise.race([
+          db.sequelize.query(currentSql),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Database timeout")), 20000)
+          ),
+        ]);
+        executionSuccess = true;
+      } catch (queryError) {
+        console.error(`Database query error (Attempt ${retries + 1}):`, queryError.message);
+        
+        if (retries < MAX_RETRIES) {
+          retries++;
+          console.log(`Attempting to correct SQL... (Retry ${retries})`);
+          
+          const correctionPrompt = `
+          The previous SQL query failed with the following error:
+          "${queryError.message}"
+
+          FAILED SQL:
+          ${currentSql}
+
+          USER QUERY:
+          "${userQuery}"
+
+          DATABASE SCHEMA:
+          ${JSON.stringify(trainingData, null, 2)}
+
+          TASK:
+          Correct the SQL query to fix the error. Return ONLY the JSON object with the corrected "sql" field. 
+          Do not include explanation or suggestions in the JSON for this correction step.
+          
+          Example format:
+          {
+            "sql": "SELECT * FROM ..."
+          }
+          `;
+
+          try {
+            const correctionResponse = await model.invoke(correctionPrompt);
+            const cleanedCorrection = correctionResponse?.content
+              ?.trim()
+              ?.replace(/^```json/i, "")
+              ?.replace(/^```/, "")
+              ?.replace(/```$/, "")
+              ?.trim();
+
+            if (cleanedCorrection) {
+              const parsedCorrection = JSON.parse(cleanedCorrection);
+              if (parsedCorrection.sql) {
+                currentSql = parsedCorrection.sql;
+                continue; // Retry with new SQL
+              }
+            }
+          } catch (correctionError) {
+            console.error("Error during SQL correction:", correctionError);
+          }
+        }
+        
+        // If we are here, it means either max retries reached or correction failed
+        if (retries === MAX_RETRIES) {
+            query_status = "failed";
+            
+            finalResponse = `
+              <div style="padding: 20px;">
+                <h2>⚠️ Query Error</h2>
+                <p>I encountered an issue while fetching the data. This might be due to:</p>
+                <ul>
+                  <li>Invalid stock symbol or filter criteria</li>
+                  <li>Temporary database connectivity issue</li>
+                  <li>Complex query that needs refinement</li>
+                </ul>
+                <p>Please try rephrasing your question or use one of the suggestions below.</p>
+              </div>
+            `;
+            
+            suggestions = [
+              "Show me top 10 stocks by market cap",
+              "Which stocks are above ₹500?",
+              "List high-volume stocks today"
+            ];
+            // Exit loop and let it proceed to history saving
+            break; 
+        }
+      }
+    }
+
+    if (executionSuccess) {
       if (results.length > 1) {
         // Multiple results - generate enhanced HTML table
         finalResponse = await generateEnhancedHTML(results, userQuery, model);
@@ -620,30 +707,7 @@ Return JSON now:
 
       // Add to conversation history
       addToScreenerHistory(userid, 'user', userQuery);
-      addToScreenerHistory(userid, 'assistant', 'Generated stock analysis');
-
-    } catch (queryError) {
-      query_status = "failed";
-      console.error("Database query error:", queryError);
-      
-      finalResponse = `
-        <div style="padding: 20px;">
-          <h2>⚠️ Query Error</h2>
-          <p>I encountered an issue while fetching the data. This might be due to:</p>
-          <ul>
-            <li>Invalid stock symbol or filter criteria</li>
-            <li>Temporary database connectivity issue</li>
-            <li>Complex query that needs refinement</li>
-          </ul>
-          <p>Please try rephrasing your question or use one of the suggestions below.</p>
-        </div>
-      `;
-      
-      suggestions = [
-        "Show me top 10 stocks by market cap",
-        "Which stocks are above ₹500?",
-        "List high-volume stocks today"
-      ];
+      addToScreenerHistory(userid, 'assistant', 'Generated stock analysis'); 
     }
 
     // Store query history
