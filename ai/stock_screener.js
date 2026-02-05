@@ -481,7 +481,15 @@ Output JSON with three keys:
 - NO markdown, HTML tags, escape characters (\\n, \\t)
 - For explanations: Use {{column_name}} placeholders
 - Keep explanations conversational and insightful
-- Include 3 relevant follow-up suggestions
+
+SUGGESTION GUIDELINES:
+- **FORMAT:** Suggestions must be feasible USER COMMANDS, not questions from you.
+- **BAD:** "Would you like to see the price history?" (Do not use)
+- **BAD:** "Shall I compare it with TCS?" (Do not use)
+- **GOOD:** "Show me price history"
+- **GOOD:** "Compare with TCS"
+- **GOOD:** "What is the PE ratio?"
+- Provide 3 diverse follow-up options based on the context.
 
 TONE & STYLE:
 
@@ -574,7 +582,7 @@ Return JSON now:
     // Execute SQL query with retry logic
     let results;
     let retries = 0;
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = 3;
     let currentSql = parsedResponse.sql;
     let executionSuccess = false;
 
@@ -583,7 +591,7 @@ Return JSON now:
         [results] = await Promise.race([
           db.sequelize.query(currentSql),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Database timeout")), 20000)
+            setTimeout(() => reject(new Error("Database timeout")), 30000)
           ),
         ]);
         executionSuccess = true;
