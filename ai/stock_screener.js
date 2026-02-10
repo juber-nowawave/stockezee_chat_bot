@@ -5,6 +5,14 @@ import { getModelInstance } from "../utils/ai_models.js";
 
 dotEnv.config();
 
+const gemini_keys = [
+  process.env.GEMINI_API_KEYS1,
+  process.env.GEMINI_API_KEYS2,
+  process.env.GEMINI_API_KEYS3,
+  process.env.GEMINI_API_KEYS4,
+  process.env.GEMINI_API_KEYS5,
+];
+
 const tableDescriptions = {
   nse_eq_stock_data_daily:
     "This table contains live stock data for the current trading day.",
@@ -395,7 +403,9 @@ export const stock_screener_ai = async (req, res) => {
 
     let query_status = "success";
     const trainingData = await getTrainingData();
-    const gemini_api_key = process.env.MAIN_GEMINI_KEY;
+    // const gemini_api_key = process.env.MAIN_GEMINI_KEY;
+    const gemini_api_key = gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
+    
     const model = getModelInstance(gemini_api_key);
 
     // Get conversation history
