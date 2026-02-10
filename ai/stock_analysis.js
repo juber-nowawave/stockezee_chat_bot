@@ -12,6 +12,7 @@ const gemini_keys = [
   process.env.GEMINI_API_KEYS4,
   process.env.GEMINI_API_KEYS5,
 ];
+///
 
 const tableDescriptions = {
   nse_eq_stock_data_daily:
