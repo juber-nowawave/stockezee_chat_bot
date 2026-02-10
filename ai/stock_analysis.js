@@ -6,16 +6,11 @@ import { getModelInstance } from "../utils/ai_models.js";
 dotenv.config();
 
 const gemini_keys = [
-  "AIzaSyD7pZbsR0TTYanab0tWo4YLuAslgQm99m8",
-  "AIzaSyA_WI8rxxY3J3UFApsqPwDgTvRzm9WP1pw",
-  "AIzaSyAcq-na7B01r4jmW04wFiQq1fId2hfJluI",
-  "AIzaSyD0q1BotGSOkyfUQll08f7P-MhOlJD4CYI",
-  "AIzaSyAjXKODb8JtQoxMCLAFmN9piqArr_qbc6c",
-  "AIzaSyDO3fMZJbsgiFA0WUm4b_X_jG8DvkNtpHU",
-  "AIzaSyATNF479QLaGILiipviMSxGLB1hKVsRyO8",
-  "AIzaSyBtmcRALIuS9N9fVSURXJ2VnMYN8DN7VuU",
-  "AIzaSyDRfJXVsrvLhhkC4egQ3icVLjnJKBQ7drI",
-  "AIzaSyBZWWu249O2rB6yESZm2yF-9pfC8cJuuBM",
+  process.env.GEMINI_API_KEYS1,
+  process.env.GEMINI_API_KEYS2,
+  process.env.GEMINI_API_KEYS3,
+  process.env.GEMINI_API_KEYS4,
+  process.env.GEMINI_API_KEYS5,
 ];
 
 const tableDescriptions = {
@@ -153,8 +148,9 @@ export const stock_analysis_ai = async (req, res) => {
     let query_status = "success";
     const contextualQuery = userQuery.concat(` in the context of ${symbol}`);
     const trainingData = await getTrainingData();
-    const gemini_api_key = process.env.MAIN_GEMINI_KEY;
-
+    // const gemini_api_key = process.env.MAIN_GEMINI_KEY;
+    const gemini_api_key = gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
+    
     const model = getModelInstance(gemini_api_key);
     const prompt = `
 You are a financial data assistant that generates PostgreSQL queries AND crafts natural, conversational explanations based on the query results.
