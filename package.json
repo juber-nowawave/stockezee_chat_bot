@@ -11,9 +11,8 @@
   "keywords": [],
   "description": "",
   "dependencies": {
-    "@langchain/community": "^0.3.49",
     "@langchain/core": "^1.1.24",
-    "@langchain/google-genai": "^0.2.18",
+    "@langchain/google-genai": "^2.1.18",
     "@langchain/openai": "^1.2.7",
     "axios": "^1.12.2",
     "chart.js": "^4.5.0",
@@ -28,7 +27,8 @@
     "pdfmake": "^0.2.20",
     "pg": "^8.16.3",
     "puppeteer": "^24.24.0",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
