@@ -1,17 +1,9 @@
+
 import dotEnv from "dotenv";
 import db from "../models/index.js";
 import moment from "moment";
-import { getModelInstance } from "../utils/ai_models.js";
-
+import { getBedrockLangChainInstance } from "../utils/ai_models.js";
 dotEnv.config();
-
-const gemini_keys = [
-  process.env.GEMINI_API_KEYS1,
-  process.env.GEMINI_API_KEYS2,
-  process.env.GEMINI_API_KEYS3,
-  process.env.GEMINI_API_KEYS4,
-  process.env.GEMINI_API_KEYS5,
-];
 
 const tableDescriptions = {
   nse_eq_stock_data_daily:
@@ -184,34 +176,6 @@ const getMarketContext = () => {
   };
 };
 
-// Format number with Indian system
-const formatNumber = (value, key = '') => {
-  if (value === null || value === undefined) return 'N/A';
-  
-  if (typeof value === 'number') {
-    const keyLower = key.toLowerCase();
-    
-    if (keyLower.includes('price') || keyLower.includes('close') || 
-        keyLower.includes('high') || keyLower.includes('low') ||
-        keyLower.includes('open')) {
-      return '₹' + value.toFixed(2);
-    } else if (keyLower.includes('percent') || keyLower.includes('change') ||
-               keyLower.includes('margin') || keyLower.includes('ratio')) {
-      return value.toFixed(2) + '%';
-    } else if (value > 10000000) {
-      return (value / 10000000).toFixed(2) + ' Cr';
-    } else if (value > 100000) {
-      return (value / 100000).toFixed(2) + ' L';
-    } else {
-      return value.toLocaleString('en-IN');
-    }
-  } else if (value instanceof Date) {
-    return moment(value).format('MMM D, YYYY');
-  }
-  
-  return value;
-};
-
 // Generate enhanced HTML response
 const generateEnhancedHTML = async (results, userQuery, model) => {
   const marketContext = getMarketContext();
@@ -316,13 +280,15 @@ Generate the complete HTML now:
       setTimeout(() => reject(new Error("HTML generation timeout")), 60000)
     ),
   ]);
+    const responseContent = response.content;
 
-  return response?.content
+    const cleanedResponse = responseContent
     ?.trim()
     ?.replace(/^```html/i, "")
     ?.replace(/^```/, "")
     ?.replace(/```$/, "")
     ?.trim();
+    return cleanedResponse;
 };
 
 // Generate single stock HTML
@@ -403,11 +369,14 @@ export const stock_screener_ai = async (req, res) => {
 
     let query_status = "success";
     const trainingData = await getTrainingData();
-    // const gemini_api_key = process.env.MAIN_GEMINI_KEY;
-    const gemini_api_key = gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
-    
-    const model = getModelInstance(gemini_api_key);
+    const openai_api_key = process.env.OPENAI_API_KEYS;
 
+    if (!openai_api_key) {
+      throw new Error("OPENAI_API_KEYS not found in environment variables");
+    }
+
+    const model = getBedrockLangChainInstance(openai_api_key);
+    
     // Get conversation history
     const history = getScreenerHistory(userid);
     const conversationContext = history.length > 0 
@@ -534,7 +503,7 @@ Return JSON now:
       ),
     ]);
 
-    const cleanedResponse = response?.content
+    const cleanedResponse = response.content
       ?.trim()
       ?.replace(/^```json/i, "")
       ?.replace(/^```/, "")
@@ -545,16 +514,41 @@ Return JSON now:
       query_status = "failed";
       throw new Error("Empty AI response");
     }
+const jsonStart = cleanedResponse.indexOf('{"sql"') !== -1 ? cleanedResponse.indexOf('{"sql"') : cleanedResponse.indexOf('{\n  "sql"');
 
-    let parsedResponse;
+if (jsonStart === -1) {
+  query_status = "failed";
+  throw new Error("No valid JSON object found in AI response");
+}
+
+let braceCount = 0;
+let jsonEnd = -1;
+
+for (let i = jsonStart; i < cleanedResponse.length; i++) {
+  if (cleanedResponse[i] === "{") braceCount++;
+  if (cleanedResponse[i] === "}") braceCount--;
+
+  if (braceCount === 0) {
+    jsonEnd = i + 1;
+    break;
+  }
+}
+
+if (jsonEnd === -1) {
+  throw new Error("Could not determine end of JSON object");
+}
+
+const jsonString = cleanedResponse.slice(jsonStart, jsonEnd);
+
+let parsedResponse;
     try {
-      parsedResponse = JSON.parse(cleanedResponse);
+      parsedResponse = JSON.parse(jsonString);
     } catch (parseError) {
       console.error("JSON parse error:", parseError);
       query_status = "failed";
       throw new Error("Invalid JSON response from AI");
     }
-
+    
     let finalResponse = parsedResponse.explanation;
     let suggestions = parsedResponse.suggestions || [];
 
@@ -695,18 +689,18 @@ Return JSON now:
       if (results.length > 1) {
         // Multiple results - generate enhanced HTML table
         finalResponse = await generateEnhancedHTML(results, userQuery, model);
-        
         if (!finalResponse) {
           throw new Error("Failed to generate HTML response");
         }
-
+        finalResponse = finalResponse.split("</reasoning>")[1];
+        
       } else if (results.length === 1) {
         // Single result - generate single stock HTML
         finalResponse = await generateSingleStockHTML(results[0], userQuery, model);
-        
         if (!finalResponse) {
           throw new Error("Failed to generate HTML response");
         }
+        finalResponse = finalResponse.split("</reasoning>")[1];
 
       } else {
         // No results

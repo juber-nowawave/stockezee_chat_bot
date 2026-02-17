@@ -1,18 +1,9 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+
 import dotenv from "dotenv";
 import db from "../models/index.js";
 import moment from "moment";
-import { getModelInstance } from "../utils/ai_models.js";
+import { getBedrockLangChainInstance } from "../utils/ai_models.js";
 dotenv.config();
-
-const gemini_keys = [
-  process.env.GEMINI_API_KEYS1,
-  process.env.GEMINI_API_KEYS2,
-  process.env.GEMINI_API_KEYS3,
-  process.env.GEMINI_API_KEYS4,
-  process.env.GEMINI_API_KEYS5,
-];
-///
 
 const tableDescriptions = {
   nse_eq_stock_data_daily:
@@ -116,7 +107,7 @@ const getTrainingData = async () => {
         description:
           tableDescriptions[table_name] || "No description provided.",
         columns: columnNames,
-        sample_rows: sampleRows,
+        // sample_rows: sampleRows,
       };
     } catch (error) {
       console.error(`Error fetching data for table ${table_name}:`, error);
@@ -124,7 +115,7 @@ const getTrainingData = async () => {
         description:
           tableDescriptions[table_name] || "No description provided.",
         columns: [],
-        sample_rows: [],
+        // sample_rows: [],
       };
     }
   }
@@ -149,15 +140,20 @@ export const stock_analysis_ai = async (req, res) => {
     let query_status = "success";
     const contextualQuery = userQuery.concat(` in the context of ${symbol}`);
     const trainingData = await getTrainingData();
-    // const gemini_api_key = process.env.MAIN_GEMINI_KEY;
-    const gemini_api_key = gemini_keys[Math.floor(Math.random() * gemini_keys.length)];
-    
-    const model = getModelInstance(gemini_api_key);
+
+    const openai_api_key = process.env.OPENAI_API_KEYS;
+
+    if (!openai_api_key) {
+      throw new Error("OPENAI_API_KEYS not found in environment variables");
+    }
+
+    const model = getBedrockLangChainInstance(openai_api_key);
+
     const prompt = `
 You are a financial data assistant that generates PostgreSQL queries AND crafts natural, conversational explanations based on the query results.
 
 DATABASE STRUCTURE:
-${JSON.stringify(trainingData, null, 2)}
+${JSON.stringify(trainingData)}
 
 TASK:
 Given a user’s query, do BOTH in one step:
@@ -211,15 +207,40 @@ Return JSON in this format:
       throw new Error("Empty AI response");
     }
 
-    let parsedResponse;
-    try {
-      parsedResponse = JSON.parse(cleanedResponse);
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError);
-      query_status = "failed";
-      throw new Error("Invalid JSON response from AI");
-    }
+const jsonStart = cleanedResponse.indexOf('{"sql"');
+console.log('-------__????>>>',jsonStart);
 
+if (jsonStart === -1) {
+  throw new Error("No valid JSON object found in AI response");
+}
+
+let braceCount = 0;
+let jsonEnd = -1;
+
+for (let i = jsonStart; i < cleanedResponse.length; i++) {
+  if (cleanedResponse[i] === "{") braceCount++;
+  if (cleanedResponse[i] === "}") braceCount--;
+
+  if (braceCount === 0) {
+    jsonEnd = i + 1;
+    break;
+  }
+}
+
+if (jsonEnd === -1) {
+  throw new Error("Could not determine end of JSON object");
+}
+
+const jsonString = cleanedResponse.slice(jsonStart, jsonEnd);
+
+let parsedResponse;
+
+try {
+  parsedResponse = JSON.parse(jsonString);
+} catch (err) {
+  console.error("Final JSON parse error:", err);
+  throw new Error("Invalid JSON response from AI");
+}
     let finalResponse = parsedResponse.explanation;
 
     if (!parsedResponse.sql && finalResponse) {
@@ -261,7 +282,8 @@ Return JSON in this format:
       if (results.length > 0) {
         let result = results[0];
         for (let key in result) {
-          finalResponse = finalResponse.replace(`{{${key}}}`, result[key]);
+          // Replace all occurrences of the key
+          finalResponse = finalResponse.split(`{{${key}}}`).join(result[key]);
         }
       } else {
         query_status = "failed";
@@ -307,14 +329,14 @@ Return JSON in this format:
     }
 
     const history_record_data = {
-      user_id: userid,
+      // user_id: userid,
       bot_type: "stock analysis",
       user_query: `${userQuery}, in the context of ${symbol}`,
       status: "failed",
       time: current_time,
       created_at: current_date,
     };
-    await db.chat_bot_history.create(history_record_data);
+    // await db.chat_bot_history.create(history_record_data);
 
     res.status(200).json({
       status: 0,

@@ -1,4 +1,5 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatOpenAI } from "@langchain/openai";
 const modelInstances = new Map();
 
 export const getModelInstance = (apiKey) => {
@@ -10,4 +11,18 @@ export const getModelInstance = (apiKey) => {
     }));
   }
   return modelInstances.get(apiKey);
+};
+
+export const getBedrockLangChainInstance = (apiKey) => {
+  if (!modelInstances.has(`langchain_${apiKey}`)) {
+    modelInstances.set(`langchain_${apiKey}`, new ChatOpenAI({
+      model: process.env.OPENAI_MODEL || "openai.gpt-oss-20b-1:0",
+      apiKey: apiKey,
+      configuration: {
+        baseURL: process.env.BEDROCK_ENDPOINT,
+      },
+      temperature: 0.1,
+    }));
+  }
+  return modelInstances.get(`langchain_${apiKey}`);
 };

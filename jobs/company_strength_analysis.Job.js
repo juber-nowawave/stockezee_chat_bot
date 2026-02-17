@@ -3,8 +3,6 @@ import db from "../models/index.js";
 import { company_strength_analysis_ai } from "../ai/company_strength_analysis.js";
 import moment from "moment";
 import long_term_stock_recommend_analysis from "../utils/long_term_stock_recommend_analysis.js";
-import analyze_stock_scores from "../utils/stock_scores_analysis.js";
-import { json } from "sequelize";
 
 const strength_analysis = async () => {
   try {
