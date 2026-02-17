@@ -15,7 +15,7 @@ export const get_stock_screener_chatbot_usage = async (req, res) => {
       },
     });
 
-    const max_limit = 10;
+    const max_limit = process.env.USAGE_MAX_LIMIT;
 
     return res.status(200).json({
       status: 1,
