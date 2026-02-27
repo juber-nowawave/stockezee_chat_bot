@@ -91,8 +91,6 @@ Keep your reply to 1-2 short sentences. Do NOT mention SQL or databases.
     // ── Fetch all stock data in parallel ─────────────────────────────────────
     console.log(`[StockAnalysisAI] Fetching data for: ${symbol}`);
     const stockContext = await fetchStockData(symbol);
-    console.log(JSON.stringify(stockContext));
-    
     // ── Build the AI prompt ───────────────────────────────────────────────────
 let prompt = `
 You are Stozy — a dedicated financial AI assistant specialized in Indian stock markets (NSE/BSE).  
@@ -211,6 +209,51 @@ if(precise_output){
   `
  }
 
+prompt += `
+---
+MANDATORY COMPLIANCE & LEGAL RULE — ABSOLUTE HIGHEST PRIORITY
+... (your existing compliance block)
+
+---
+IMPORTANT FORMATTING RULES — MUST FOLLOW 100%
+
+- Paragraph spacing MUST be compact and natural.
+- Use EXACTLY one <p> tag per paragraph — do NOT insert extra <p></p> or multiple <br> tags.
+- NEVER use <br><br>, <br><br><br>, or any double/triple line breaks.
+- NEVER add empty <p> tags or <div> wrappers just to create vertical space.
+- Rely ONLY on the browser's default margin between consecutive <p> tags (usually 1em–1.5em).
+- Do NOT use style="margin-bottom: 20px;" or any custom margin/padding on <p> unless absolutely necessary for one specific case.
+- Goal: clean, professional, readable HTML with **minimal vertical whitespace** — similar to a typical article or blog post.
+
+- You MUST output ONLY valid, clean HTML5 content — never plain text without tags.
+... (rest of your HTML rules)
+
+---
+FORMATTING & READABILITY RULES — MUST FOLLOW
+
+- Spacing must look tight and professional — no large gaps between paragraphs. Default <p> margins are sufficient.
+... (your existing readability block)
+
+Example correct compact spacing:
+<div class="response-content">
+  <h2>Current Price</h2>
+  <p>Last traded price: ₹1,412.50 (as of 27 Feb 2026)</p>
+  <p>Change: -₹8.30 (-0.58%)</p>
+  <p>Previous close: ₹1,420.80</p>
+
+  <h3>Valuation Snapshot</h3>
+  <table border="1" cellpadding="8" cellspacing="0">
+    <tr><th>Ratio</th><th>Value</th></tr>
+    <tr><td>P/E</td><td>26.60</td></tr>
+    <tr><td>P/B</td><td>2.19</td></tr>
+  </table>
+
+  <h3>Key Observations</h3>
+  <p>Valuation appears moderately elevated relative to historical averages.</p>
+  <p>Investors commonly evaluate growth prospects in the energy and digital segments alongside these metrics.</p>
+</div>
+---
+`;
     const response = await Promise.race([
       model.invoke(prompt),
       new Promise((_, reject) =>
