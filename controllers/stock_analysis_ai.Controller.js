@@ -15,7 +15,7 @@ export const handle_stock_analysis_query = async (req, res) => {
       });
     }
 
-    const { userQuery, symbol } = req.body;
+    const { userQuery, symbol, precise_output } = req.body;
     if (!userQuery || !symbol) {
       return res.status(400).json({
         status: 0,
@@ -42,7 +42,7 @@ export const handle_stock_analysis_query = async (req, res) => {
       });
     }
     
-    req.body = { userQuery, symbol, userid, remaining_limit: max_limit - today_count, max_limit};
+    req.body = { userQuery, symbol, userid, precise_output, remaining_limit: max_limit - today_count, max_limit};
     await stock_analysis_ai(req, res);
   } catch (error) {
     console.error("Query error:", error);

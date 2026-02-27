@@ -3,131 +3,25 @@ import dotenv from "dotenv";
 import db from "../models/index.js";
 import moment from "moment";
 import { getBedrockLangChainInstance } from "../utils/ai_models.js";
+import { fetchStockData } from "../utils/stock_data_fetcher.js";
 dotenv.config();
-
-const tableDescriptions = {
-  nse_eq_stock_data_daily:
-    "This table contains live stock data for the current trading day.",
-  nse_eq_stock_historical_daily:
-    "This table contains end-of-day (EOD) data for previous trading days.",
-  nse_eq_stock_data_intraday_daily:
-    "This table contains intraday stock price data captured during market hours.",
-  nse_company_bio:
-    "This table contains company biography and summary. Highly relevant for general 'Tell me about SYMBOL' queries.",
-  nse_company_details:
-    "This table contains financial and ratio analysis data. Use when the query is about company performance.",
-  nse_company_peers:
-    "This table contains peer comparison data for companies based on similar industry or sector.",
-  nse_stock_profit_loss:
-    "This table contains profit and loss (income statement) data for NSE stocks, including key metrics like revenue, net income, EBIT, expenses, and tax provisions.",
-  nse_stock_cash_flow:
-    "This table contains cash flow statement data for NSE stocks, including operating, investing, and financing cash flows, capex, free cash flow, and changes in working capital.",
-  nse_stock_balance_sheet:
-    "This table contains balance sheet data for NSE stocks, including assets (cash, receivables, property), liabilities (debt, payables), equity, and totals like total assets and shareholders' equity.",
-  nse_eq_stock_candle_pettern_per_week:
-    "Stores weekly candlestick pattern information for NSE equity stocks.",
-  nse_eq_stock_candle_pettern_per_day:
-    "Stores daily candlestick pattern information for NSE equity stocks.",
+const isGreetingQuery = (query) => {
+  const greetingPatterns = /^(hi|hello|hey|good\s*(morning|evening|afternoon|night)|how\s+are\s+you|what'?s?\s+up|namaste|hii+|hellooo)/i;
+  return greetingPatterns.test(query.trim());
 };
 
-let cachedTrainingData = null;
-
-const getTrainingData = async () => {
-  if (cachedTrainingData) return cachedTrainingData;
-
-  const tables = Object.keys(tableDescriptions);
-  const trainingData = {};
-
-  for (const table_name of tables) {
-    try {
-      let columns;
-      let sampleRows;
-
-      // Handle vertical format tables
-      if (
-        [
-          "nse_stock_cash_flow",
-          "nse_stock_balance_sheet",
-          "nse_stock_profit_loss",
-        ].includes(table_name)
-      ) {
-        // Get distinct item names as columns for vertical format tables
-        columns = await db.sequelize.query(`
-          SELECT DISTINCT item_name as column_name 
-          FROM ${table_name}
-          ORDER BY item_name;
-        `);
-        [columns] = columns;
-
-        // Get sample data and transform from vertical to horizontal format
-        const verticalData = await db.sequelize.query(`
-          SELECT
-            symbol_name, 
-            period,
-            EXTRACT(YEAR FROM period)::int AS year,
-            jsonb_object_agg(item_name, amount) AS items
-          FROM ${table_name}
-          WHERE duration_type = 'quarterly'
-          GROUP BY symbol_name, period
-          ORDER BY period DESC
-          LIMIT 1;
-        `);
-        [sampleRows] = verticalData;
-
-        // Transform the data to include all fields
-        if (sampleRows && sampleRows.length > 0) {
-          sampleRows = sampleRows.map((data) => ({
-            symbol_name: data.symbol_name,
-            period: data.period,
-            year: data.year,
-            ...data.items,
-          }));
-        }
-      } else {
-        // Handle regular horizontal format tables
-        columns = await db.sequelize.query(`
-          SELECT column_name
-          FROM information_schema.columns
-          WHERE table_name = '${table_name}'
-          ORDER BY ordinal_position
-        `);
-        [columns] = columns;
-
-        sampleRows = await db.sequelize.query(`
-          SELECT * FROM ${table_name} 
-          ORDER BY created_at DESC 
-          LIMIT 1
-        `);
-        [sampleRows] = sampleRows;
-      }
-
-      const columnNames = columns.map((col) => col.column_name);
-
-      trainingData[table_name] = {
-        description:
-          tableDescriptions[table_name] || "No description provided.",
-        columns: columnNames,
-        // sample_rows: sampleRows,
-      };
-    } catch (error) {
-      console.error(`Error fetching data for table ${table_name}:`, error);
-      trainingData[table_name] = {
-        description:
-          tableDescriptions[table_name] || "No description provided.",
-        columns: [],
-        // sample_rows: [],
-      };
-    }
-  }
-
-  cachedTrainingData = trainingData;
-  return trainingData;
+const isInvalidQuery = (query) => {
+  const validCharRatio = (query.match(/[a-zA-Z0-9\s?]/g) || []).length / query.length;
+  return validCharRatio < 0.5;
 };
 
 export const stock_analysis_ai = async (req, res) => {
-  let { userQuery, symbol, userid, remaining_limit, max_limit } = req.body;
+  let { userQuery, symbol, userid, precise_output ,remaining_limit, max_limit } = req.body;
   const current_date = moment().tz("Asia/kolkata").format("YYYY-MM-DD");
   const current_time = moment().tz("Asia/kolkata").format("HH:mm:ss");
+
+  let query_status = "success";
+
   try {
     if (!userQuery || !symbol) {
       return res.status(400).json({
@@ -137,178 +31,216 @@ export const stock_analysis_ai = async (req, res) => {
       });
     }
 
-    let query_status = "success";
-    const contextualQuery = userQuery.concat(` in the context of ${symbol}`);
-    const trainingData = await getTrainingData();
-
     const openai_api_key = process.env.OPENAI_API_KEYS;
-
     if (!openai_api_key) {
       throw new Error("OPENAI_API_KEYS not found in environment variables");
     }
 
     const model = getBedrockLangChainInstance(openai_api_key);
 
-    const prompt = `
-You are a financial data assistant that generates PostgreSQL queries AND crafts natural, conversational explanations based on the query results.
-
-DATABASE STRUCTURE:
-${JSON.stringify(trainingData)}
-
-TASK:
-Given a user’s query, do BOTH in one step:
-1. Identify the single most relevant table from the schema above.
-2. Do NOT use UNION. Prefer selecting from just one logical table.
-3. Write a valid PostgreSQL SELECT query using the correct column names.
-4. Always include symbol_name in the WHERE clause.
-5. Assume you have run the query and seen the actual values — use those values to create a human-friendly explanation.
-6. The explanation should be conversational, like a financial advisor talking to a client.
-7. If the user greets you formally with phrases like "Hey", "Hello", etc., you should also respond formally with replies such as "Hey, how can I help you?" or "Hello, how can I assist you today", etc. user query such as "how are you" etc so you have to response like "I am fine what about you" etc and in this case do'nt generate sql query and Set the "sql" key in the JSON output to null
-8. If the user enters an inappropriate or invalid query — such as random symbols ($@$%#@#@#@), etc — respond politely with a message like: "Sorry, I couldn’t understand your query. Please enter a valid stock query." Always guide the user back to providing a meaningful financial query.
-
-FORMATTING RULES:
-- Output only a JSON object with "sql" and "explanation" keys.
-- Do not include HTML tags, markdown, line breaks like \n\n, \\n, or extra symbols.
-- For ALL values from the database (not just prices), display the **actual column names** inside double curly braces, e.g., {{close}}, {{high}}, {{promoters}}, {{fiis}}, {{diis}}, {{government}}, {{public}} , do'nt add curly braces {{}} in sql query.
-- Never use generic placeholders like X, Y, Z, A, B. Always use the real column name from the table.
-- For company info, summarize naturally in full sentences.
-- Keep explanations concise but informative — not too short.
-
-STYLE GUIDELINES FOR EXPLANATION:
-- For price data: “KPIGREEN’s latest closing price is ₹985.50”
-- For company info: “KPIGREEN is a renewable energy company focused on solar power solutions…”
-- Avoid mentioning databases, SQL, or technical terms.
-- Speak in an advisor tone — clear, confident, and client-focused.
-
-USER QUERY: "${contextualQuery}"
-
-Return JSON in this format:
-{
-  "sql": "PostgreSQL query here",
-  "explanation": "Natural, advisor-style explanation using the fetched data"
-}
+    if (isGreetingQuery(userQuery)) {
+      const greetPrompt = `
+You are Stockezee AI — a friendly, professional stock market assistant for Indian markets.
+The user has greeted you. Respond warmly and briefly, and let them know you can help with stock analysis, financials, price data, and company insights.
+User said: "${userQuery}"
+Keep your reply to 1-2 short sentences. Do NOT mention SQL or databases.
 `;
+      const greetResponse = await model.invoke(greetPrompt);
+      const greetMsg = greetResponse?.content?.trim() || "Hey! How can I help you with your stock analysis today?";
 
-    const response = await Promise.race([
-      model.invoke(prompt),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("AI request timeout")), 100000)
-      ),
-    ]);
-
-    const cleanedResponse = response?.content
-      ?.trim()
-      ?.replace(/^```json/i, "")
-      ?.replace(/^```/, "")
-      ?.replace(/```$/, "")
-      ?.trim();
-
-    if (!cleanedResponse) {
-      throw new Error("Empty AI response");
-    }
-
-const jsonStart = cleanedResponse.indexOf('{"sql"');
-console.log('-------__????>>>',jsonStart);
-
-if (jsonStart === -1) {
-  throw new Error("No valid JSON object found in AI response");
-}
-
-let braceCount = 0;
-let jsonEnd = -1;
-
-for (let i = jsonStart; i < cleanedResponse.length; i++) {
-  if (cleanedResponse[i] === "{") braceCount++;
-  if (cleanedResponse[i] === "}") braceCount--;
-
-  if (braceCount === 0) {
-    jsonEnd = i + 1;
-    break;
-  }
-}
-
-if (jsonEnd === -1) {
-  throw new Error("Could not determine end of JSON object");
-}
-
-const jsonString = cleanedResponse.slice(jsonStart, jsonEnd);
-
-let parsedResponse;
-
-try {
-  parsedResponse = JSON.parse(jsonString);
-} catch (err) {
-  console.error("Final JSON parse error:", err);
-  throw new Error("Invalid JSON response from AI");
-}
-    let finalResponse = parsedResponse.explanation;
-
-    if (!parsedResponse.sql && finalResponse) {
-      const history_record_data = {
+      await db.chat_bot_history.create({
         user_id: userid,
         bot_type: "stock analysis",
         user_query: `${userQuery}, in the context of ${symbol}`,
-        status: query_status,
+        status: "success",
         time: current_time,
         created_at: current_date,
-      };
-      await db.chat_bot_history.create(history_record_data);
+      });
 
-      remaining_limit =
-        query_status === "success" ? remaining_limit - 1 : remaining_limit;
+      remaining_limit = remaining_limit - 1;
+      return res.status(200).json({
+        status: 1,
+        message: "Success",
+        data: { msg: greetMsg, max_limit, remaining_limit },
+      });
+    }
+
+    // ── Handle obviously invalid / gibberish queries ─────────────────────────
+    if (isInvalidQuery(userQuery)) {
+      await db.chat_bot_history.create({
+        user_id: userid,
+        bot_type: "stock analysis",
+        user_query: `${userQuery}, in the context of ${symbol}`,
+        status: "success",
+        time: current_time,
+        created_at: current_date,
+      });
+
+      remaining_limit = remaining_limit - 1;
       return res.status(200).json({
         status: 1,
         message: "Success",
         data: {
-          msg: finalResponse,
+          msg: "Sorry, I couldn't understand your query. Please enter a valid stock question — for example, try asking about a company's financials, balance sheet, revenue, or stock price.",
           max_limit,
           remaining_limit,
         },
       });
     }
 
-    if (!parsedResponse.sql) {
-      query_status = "failed";
-      throw new Error("No SQL query generated");
-    }
-    try {
-      const [results] = await Promise.race([
-        db.sequelize.query(parsedResponse.sql),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Database timeout")), 5000)
-        ),
-      ]);
+    // ── Fetch all stock data in parallel ─────────────────────────────────────
+    console.log(`[StockAnalysisAI] Fetching data for: ${symbol}`);
+    const stockContext = await fetchStockData(symbol);
+    console.log(JSON.stringify(stockContext));
+    
+    // ── Build the AI prompt ───────────────────────────────────────────────────
+let prompt = `
+You are Stozy — a dedicated financial AI assistant specialized in Indian stock markets (NSE/BSE).  
+You act as a strong, senior financial advisor with over 25 years of experience.  
+You speak with authority, confidence, precision and directness — like a battle-hardened market veteran who has navigated multiple bull runs, crashes, and sideways phases.  
+You give clear, no-nonsense professional opinions. You are not overly chatty or casual.
 
-      if (results.length > 0) {
-        let result = results[0];
-        for (let key in result) {
-          // Replace all occurrences of the key
-          finalResponse = finalResponse.split(`{{${key}}}`).join(result[key]);
-        }
-      } else {
-        query_status = "failed";
-        finalResponse = `I couldn't find any data for ${symbol}. The symbol might not exist in our database or there might be no recent data available.`;
-      }
-    } catch (queryError) {
-      console.error("Database query error:", queryError);
-      query_status = "failed";
-      finalResponse = `Unable to fetch data for ${symbol}. Please try again or check if the symbol or query is valid.`;
+Important rule — identity & meta questions:  
+If the user asks about your name, who you are, what model you are, whether you are AI or human, your age, your company, your location, your capabilities outside of stock analysis, or any personal / meta / off-topic question —  
+you answer ONLY with one short sentence and redirect immediately:
+
+"I am Stozy, your financial AI assistant focused on Indian stock markets. Ask me about any stock, price, trend, financials, ratios, valuation or market view."
+
+Do NOT give long explanations, do NOT play along, do NOT answer personal questions in detail.
+
+Today's date is ${current_date}.
+
+You are given comprehensive real-time financial data for ${symbol} below.
+Answer the user's question using ONLY the data provided. Never invent or assume numbers.
+
+---
+STOCK DATA FOR ${symbol}
+Intraday Price Data
+${stockContext.intraday_price_data ? JSON.stringify(stockContext.intraday_price_data, null, 2) : "Not available"}
+
+Current Price Data
+${stockContext.current_price_data ? JSON.stringify(stockContext.current_price_data, null, 2) : "Not available"}
+
+Company Profile / Bio
+${stockContext.company_bio ? JSON.stringify(stockContext.company_bio, null, 2) : "Not available"}
+
+Company Details & Key Ratios
+${stockContext.company_details ? JSON.stringify(stockContext.company_details, null, 2) : "Not available"}
+
+Historical Stock Data (Last 30 Days)
+${stockContext.historical_data.length > 0 ? JSON.stringify(stockContext.historical_data, null, 2) : "Not available"}
+
+Profit & Loss (Last 8 Quarters)
+${stockContext.profit_and_loss.length > 0 ? JSON.stringify(stockContext.profit_and_loss, null, 2) : "Not available"}
+
+Balance Sheet (Last 8 Quarters)
+${stockContext.balance_sheet.length > 0 ? JSON.stringify(stockContext.balance_sheet, null, 2) : "Not available"}
+
+Cash Flow Statement (Last 8 Quarters)
+${stockContext.cash_flow.length > 0 ? JSON.stringify(stockContext.cash_flow, null, 2) : "Not available"}
+
+Technical Indicators
+${stockContext.technical_indicators ? JSON.stringify(stockContext.technical_indicators, null, 2) : "Not available"}
+
+Peer Comparison
+${stockContext.peers.length > 0 ? JSON.stringify(stockContext.peers, null, 2) : "Not available"}
+
+Stock Scores
+${stockContext.stock_scores ? JSON.stringify(stockContext.stock_scores, null, 2) : "Not available"}
+
+Daily and Weekly Candle Pattern
+${stockContext.daily_candle_pattern ? JSON.stringify(stockContext.daily_candle_pattern, null, 2) : "Not available"}
+${stockContext.weekly_candle_pattern ? JSON.stringify(stockContext.weekly_candle_pattern, null, 2) : "Not available"}
+
+---
+USER QUESTION
+${userQuery} — in the context of ${symbol}
+
+---
+RESPONSE INSTRUCTIONS — FOLLOW THESE RULES STRICTLY AND IN THIS ORDER OF PRIORITY
+`
+
+if(precise_output){
+   prompt += `1. The very first paragraph(s) must directly answer the exact question the user asked — start immediately with the core information they want.
+   Do NOT begin with CURRENT PRICE or any other fixed section unless that is literally what the user is asking about.
+
+   2. Only after delivering the direct answer to the question may you add supporting context, analysis or additional relevant sections.
+
+   3. Always include a TREND ANALYSIS section somewhere in the response (unless the question is extremely narrow and clearly unrelated to price movement, e.g. only dividend policy or shareholding pattern).
+   Place TREND ANALYSIS where it logically fits — usually soon after the main answer.
+
+   4. In the TREND ANALYSIS section clearly state:
+   - short-term trend (last 5–10 trading days)
+   - medium-term trend (last 1 month)
+   - overall direction (strong uptrend / moderate uptrend / mild downtrend / clear downtrend / sideways / consolidation)
+   - support it with recent price action, volume behaviour and key levels visible in the data
+
+   5. Use only plain text. Never use #, ##, **, *, -, _, \`, --- or any markdown/formatting symbols.
+
+   6. Separate ideas with blank lines. Use clear uppercase labels followed by colon when you create sections, for example:
+   CURRENT PRICE:
+   TREND ANALYSIS:
+   PROFIT & LOSS HIGHLIGHTS:
+   VALUATION METRICS:
+   KEY POINTS:
+   SUMMARY:
+
+   7. Choose section labels and their order based on what the question actually requires. Do not force a fixed sequence.
+
+   8. Use ₹ for rupees, % for percentages, Cr for crores.
+   Write large numbers in readable format (₹12,345 Cr, 1.24 lakh shares, etc.).
+
+   9. Speak with the confidence and directness of a senior market professional.
+
+   10. If the full answer is long, end with a concise SUMMARY: section.
+
+   Now deliver your expert analysis:
+  ` 
+ }else{
+   prompt += `
+   1. Give a direct, clear and strong answer to exactly what the user asked.
+   2. Explain properly — like a senior advisor giving a thoughtful, detailed explanation to a serious investor.
+   3. Include relevant numbers, context, reasoning and important insights — but ONLY what helps answer THIS question well.
+   4. Write a complete, high-quality explanation — not one-liner. Aim for enough depth so the user really understands (usually several sentences / good paragraph(s)).
+   5. Do NOT use any section labels (CURRENT PRICE:, TREND ANALYSIS:, SUMMARY:, etc.) unless the user explicitly asked about that exact topic.
+   6. Do NOT talk about trend, momentum, up/down movement, chart patterns or technicals UNLESS the user specifically asked about price direction / trend / movement.
+   7. Do NOT add a separate summary section.
+   8. Write in natural paragraphs. Use blank lines for readability when needed.
+   9. Use ₹ for rupees, % for percentages, Cr for crores, and readable number formats.
+   10. Keep tone confident, professional, direct — no fluff, no irrelevant information.
+  `
+ }
+
+    const response = await Promise.race([
+      model.invoke(prompt),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("AI request timeout")), 120000)
+      ),
+    ]);
+
+    let finalResponse = response.content.trim();
+
+    if (finalResponse.includes("</reasoning>")) {
+      finalResponse = finalResponse.split("</reasoning>")[1]?.trim() || finalResponse;
     }
 
-    // store query history
-    const history_record_data = {
+    if (!finalResponse) {
+      throw new Error("Empty AI response");
+    }
+
+    // ── Save history ──────────────────────────────────────────────────────────
+    await db.chat_bot_history.create({
       user_id: userid,
       bot_type: "stock analysis",
       user_query: `${userQuery}, in the context of ${symbol}`,
       status: query_status,
       time: current_time,
       created_at: current_date,
-    };
-    await db.chat_bot_history.create(history_record_data);
+    });
 
-    remaining_limit =
-      query_status === "success" ? remaining_limit - 1 : remaining_limit;
-    res.status(200).json({
+    remaining_limit = remaining_limit - 1;
+
+    return res.status(200).json({
       status: 1,
       message: "Success",
       data: {
@@ -318,27 +250,29 @@ try {
       },
     });
   } catch (error) {
-    console.log(error);
+    console.error("[StockAnalysisAI] Error:", error);
 
     let errorMsg =
       "I'm having trouble processing your request right now. Please try again.";
 
-    if (error.message.includes("timeout")) {
+    if (error.message?.includes("timeout")) {
       errorMsg =
-        "The request is taking longer than expected. Please try with a simpler query.";
+        "The request is taking longer than expected. Please try with a more specific question.";
     }
 
     const history_record_data = {
-      // user_id: userid,
+      user_id: userid,
       bot_type: "stock analysis",
       user_query: `${userQuery}, in the context of ${symbol}`,
       status: "failed",
       time: current_time,
       created_at: current_date,
     };
-    // await db.chat_bot_history.create(history_record_data);
+    try {
+      await db.chat_bot_history.create(history_record_data);
+    } catch (_) {}
 
-    res.status(200).json({
+    return res.status(200).json({
       status: 0,
       message: "Processing error",
       data: {
