@@ -3,21 +3,6 @@ import { getModelInstance } from "../utils/ai_models.js";
 import { Json } from "sequelize/lib/utils";
 dotenv.config();
 
-const gemini_keys = [
-  "AIzaSyA-YKPJUaPlC5LPofHKPF_LJdK18v-GWT8",
-  "AIzaSyCA1XUqpt1cvjEOfy2IJQIIwzAEmePw5gM",
-  "AIzaSyAc5AWjumFjj4ihjZMPbCkaa-y-Ae9maG0",
-  "AIzaSyDOf_cDWy8y3M8dyeEHW00YaTtnqh_H3Zc",
-  "AIzaSyCJQH7qEiRjSBQtwEYeePb0ClhMUIxqOEI",
-  "AIzaSyC6zFQbgaEg2_rTo1CJ372kA0SRX9xg_q8",
-  "AIzaSyAXYMvZ8lgomxNXOwCwKO8XZaWWHKeIHlM",
-  "AIzaSyAbCa3uw9asML_V0s6NODpb-XZLVYE6stc",
-  "AIzaSyCA-JW3-aQJpXv3UuWtHIVB_oPueUozB5Y",
-  "AIzaSyCUUHc36Tm-EYp08hee-L9rM0kIczgkAi0",
-  "AIzaSyBYOJhdLKcggWUor6e04nDYKfqB6ETM8Vw",
-  "AIzaSyBzbZ4sgepOE90moLAobd0fVOtnNewv8dc",
-  "AIzaSyAskzMHVhgVtBru8W34bZ1zYEfHQk2dMtc",
-];
 
 export const company_strength_analysis_ai = async (data, symbol) => {
   try {
