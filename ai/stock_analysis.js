@@ -18,9 +18,7 @@ const isInvalidQuery = (query) => {
   return validCharRatio < 0.5;
 };
 
-export const stock_analysis_ai = async (req, res) => {
-  console.log('----------_????');
-  
+export const stock_analysis_ai = async (req, res, retry = 3) => {
   let {
     userQuery,
     symbol,
@@ -483,9 +481,13 @@ REFERENCE OUTPUT EXAMPLE — ADAPT CONTENT, DO NOT COPY LITERALLY
       // console.log('--------__>>>', finalResponse);
       
       if (!finalResponse) {
+        console.log('-------------------stock_analysis_ai retrying-------------------', retry);
+        if (retry > 0) {
+          return stock_analysis_ai(req, res, retry - 1);
+        }
         throw new Error("Empty AI response");
       }
-      
+
     // Ensure response is wrapped correctly — fallback wrapper if model forgot
     if (!finalResponse.includes('class="stozy-response"')) {
       finalResponse = `<div class="stozy-response">${finalResponse}</div>`;
