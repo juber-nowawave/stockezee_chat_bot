@@ -482,14 +482,15 @@ REFERENCE OUTPUT EXAMPLE — ADAPT CONTENT, DO NOT COPY LITERALLY
       }
       // console.log('--------__>>>', finalResponse);
       
+      if (!finalResponse) {
+        throw new Error("Empty AI response");
+      }
+      
     // Ensure response is wrapped correctly — fallback wrapper if model forgot
     if (!finalResponse.includes('class="stozy-response"')) {
       finalResponse = `<div class="stozy-response">${finalResponse}</div>`;
     }
 
-    if (!finalResponse) {
-      throw new Error("Empty AI response");
-    }
 
     // ── Save history ──────────────────────────────────────────────────────────
     await db.chat_bot_history.create({
