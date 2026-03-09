@@ -177,7 +177,7 @@ const getMarketContext = () => {
 };
 
 // Generate enhanced HTML response
-const generateEnhancedHTML = async (results, userQuery, model) => {
+const generateEnhancedHTML = async (results, userQuery, model, retry = 3) => {
   const marketContext = getMarketContext();
   
   const prompt = `
@@ -280,19 +280,29 @@ Generate the complete HTML now:
       setTimeout(() => reject(new Error("HTML generation timeout")), 60000)
     ),
   ]);
-    const responseContent = response.content;
-
-    const cleanedResponse = responseContent
-    ?.trim()
-    ?.replace(/^```html/i, "")
-    ?.replace(/^```/, "")
-    ?.replace(/```$/, "")
-    ?.trim();
-    return cleanedResponse;
+    let finalResponse = "";
+    
+    if (typeof response.content === "string") {
+      finalResponse = response.content.trim();
+    } else if (Array.isArray(response.content)) {
+       finalResponse = response.content
+       .filter(block => block.type === "text")
+       .map(block => block.text)
+       .join("")
+       .trim();
+    }
+      
+      if (!finalResponse) {
+        if (retry > 0) {
+          return generateEnhancedHTML(results, userQuery, model, retry - 1);
+        }
+        throw new Error("Empty AI response");
+      }
+    return finalResponse;
 };
 
 // Generate single stock HTML
-const generateSingleStockHTML = async (result, userQuery, model) => {
+const generateSingleStockHTML = async (result, userQuery, model, retry = 3) => {
   const marketContext = getMarketContext();
   
   const prompt = `
@@ -339,8 +349,29 @@ Generate HTML now:
       setTimeout(() => reject(new Error("HTML generation timeout")), 20000)
     ),
   ]);
+    
+    let finalResponse = "";
+    
+    if (typeof response.content === "string") {
+      finalResponse = response.content.trim();
+    } else if (Array.isArray(response.content)) {
+       finalResponse = response.content
+       .filter(block => block.type === "text")
+       .map(block => block.text)
+       .join("")
+       .trim();
+    }
+      // console.log('--------__>>>', finalResponse);
+      
+      if (!finalResponse) {
+        console.log('-------------------stock_screener_ai retrying-------------------', retry);
+        if (retry > 0) {
+          return generateSingleStockHTML(result, userQuery, model, retry - 1);
+        }
+        throw new Error("Empty AI response");
+      }
 
-  return response?.content
+  return finalResponse
     ?.trim()
     ?.replace(/^```html/i, "")
     ?.replace(/^```/, "")
@@ -348,7 +379,7 @@ Generate HTML now:
     ?.trim();
 };
 
-export const stock_screener_ai = async (req, res) => {
+export const stock_screener_ai = async (req, res, reqBody) => {
   let { userQuery, userid, remaining_limit, max_limit } = req.body;
   const current_date = moment().tz("Asia/kolkata").format("YYYY-MM-DD");
   const current_time = moment().tz("Asia/kolkata").format("HH:mm:ss");
@@ -503,13 +534,28 @@ Return JSON now:
       ),
     ]);
 
-    const cleanedResponse = response.content
-      ?.trim()
-      ?.replace(/^```json/i, "")
-      ?.replace(/^```/, "")
-      ?.replace(/```$/, "")
-      ?.trim();
+        let responseContent  = "";
+    
+    if (typeof response.content === "string") {
+      responseContent  = response.content.trim();
+    } else if (Array.isArray(response.content)) {
+       responseContent  = response.content
+       .filter(block => block.type === "text")
+       .map(block => block.text)
+       .join("")
+       .trim();
+      }
+      // console.log('--------__>>>', stock-screening ai response: ', responseContent );
+      
+      if (!responseContent ) {
+        console.log('-------------------stock_analysis_ai_main retrying-------------------', retry);
+        if (retry > 0) {
+          return stock_analysis_ai(req, res, retry - 1);
+        }
+        throw new Error("Empty AI response");
+      }
 
+    const cleanedResponse = responseContent;
     if (!cleanedResponse) {
       query_status = "failed";
       throw new Error("Empty AI response");
@@ -683,8 +729,8 @@ let parsedResponse;
             break; 
         }
       }
-    }
-
+    }  
+    
     if (executionSuccess) {
       if (results.length > 1) {
         // Multiple results - generate enhanced HTML table
@@ -692,16 +738,12 @@ let parsedResponse;
         if (!finalResponse) {
           throw new Error("Failed to generate HTML response");
         }
-        finalResponse = finalResponse.split("</reasoning>")[1];
-        
       } else if (results.length === 1) {
         // Single result - generate single stock HTML
         finalResponse = await generateSingleStockHTML(results[0], userQuery, model);
         if (!finalResponse) {
           throw new Error("Failed to generate HTML response");
         }
-        finalResponse = finalResponse.split("</reasoning>")[1];
-
       } else {
         // No results
         query_status = "failed";
@@ -742,7 +784,7 @@ let parsedResponse;
 
     remaining_limit =
       query_status === "success" ? remaining_limit - 1 : remaining_limit;
-      
+
     res.status(200).json({
       status: 1,
       message: "Success",
