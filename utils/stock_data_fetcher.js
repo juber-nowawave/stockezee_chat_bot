@@ -21,6 +21,7 @@ export const fetchStockData = async (symbol) => {
     peers,
     candlePatternDay,
     candlePatternWeek,
+    shareholdingData,
   ] = await Promise.allSettled([
     // 1. Intraday stock data
     db.sequelize.query(
@@ -134,6 +135,15 @@ export const fetchStockData = async (symbol) => {
        ORDER BY created_at DESC LIMIT 1`,
       { replacements: { sym }, type: db.Sequelize.QueryTypes.SELECT }
     ),
+
+    // 13. Shareholding Data
+    db.sequelize.query(
+      `SELECT * FROM nse_company_shareholding
+       WHERE symbol_name = :sym
+       LIMIT 10`,
+      { replacements: { sym }, type: db.Sequelize.QueryTypes.SELECT }
+    ),
+
   ]);
 
   // Helper: extract value from settled promise
@@ -160,7 +170,7 @@ export const fetchStockData = async (symbol) => {
   const peerList = settled(peers);
   const dailyPattern = settled(candlePatternDay);
   const weeklyPattern = settled(candlePatternWeek);
-
+  const shareholding = settled(shareholdingData);
   // Calculate stock scores (Quality, Value, Momentum, Liquidity, QVM)
   let scores = null;
   try {
@@ -191,5 +201,6 @@ export const fetchStockData = async (symbol) => {
     daily_candle_pattern: dailyPattern[0] ?? null,
     weekly_candle_pattern: weeklyPattern[0] ?? null,
     stock_scores: scores,
+    shareholding: shareholding,
   };
 };
